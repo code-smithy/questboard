@@ -8,14 +8,14 @@ Questboard is a static Vite app and can be deployed to GitHub Pages with the inc
 2. Go to **Pages**.
 3. Set **Build and deployment** to **GitHub Actions**.
 4. Go to **Secrets and variables** → **Actions** → **Variables**.
-5. Add these repository variables:
+5. Add these as repository variables, or open the `github-pages` environment and add them as environment variables:
 
 ```text
 VITE_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR-SUPABASE-PUBLISHABLE-KEY
 ```
 
-The Supabase publishable key is designed to be used by browser clients, but keeping project-specific values in GitHub Actions variables avoids hard-coding one Supabase project into source control.
+Use the project URL without `/rest/v1`; if that suffix is copied accidentally, the app normalizes it at runtime. The Supabase publishable key is designed to be used by browser clients, but keeping project-specific values in GitHub Actions variables avoids hard-coding one Supabase project into source control. The Pages workflow builds in the `github-pages` environment so environment-level variables are available during the Vite build.
 
 ## Supabase Redirect URL
 

@@ -7,25 +7,28 @@ export type SupabaseConfig = {
 const fallbackSupabaseUrl = 'http://localhost:54321';
 const fallbackSupabaseAnonKey = 'missing-anon-key';
 
-function isValidHttpUrl(value: string | undefined) {
-  if (!value) return false;
+function normalizeSupabaseUrl(value: string | undefined) {
+  if (!value) return undefined;
 
   try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    const url = new URL(value.trim());
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+
+    url.pathname = url.pathname.replace(/\/rest\/v1\/?$/, '');
+    return url.toString().replace(/\/$/, '');
   } catch {
-    return false;
+    return undefined;
   }
 }
 
 export function getSupabaseConfig(rawUrl: string | undefined, rawAnonKey: string | undefined): SupabaseConfig {
-  const trimmedUrl = rawUrl?.trim();
+  const normalizedUrl = normalizeSupabaseUrl(rawUrl);
   const trimmedAnonKey = rawAnonKey?.trim();
-  const isConfigured = Boolean(isValidHttpUrl(trimmedUrl) && trimmedAnonKey);
+  const isConfigured = Boolean(normalizedUrl && trimmedAnonKey);
 
   return {
     isConfigured,
-    url: isConfigured ? trimmedUrl! : fallbackSupabaseUrl,
+    url: isConfigured ? normalizedUrl! : fallbackSupabaseUrl,
     anonKey: isConfigured ? trimmedAnonKey! : fallbackSupabaseAnonKey,
   };
 }
