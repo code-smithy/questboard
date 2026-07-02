@@ -21,6 +21,10 @@ The workflow also accepts `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Ac
 
 The workflow also tries to switch the repository Pages build type to **GitHub Actions** through the GitHub Pages API before building. If that step emits a warning, set the Pages source manually; otherwise GitHub's branch-based `pages-build-deployment` workflow can publish the repository source `index.html`, which leaves the browser stuck on `Loading Questboard…` and tries to load `/src/main.tsx`.
 
+## Deployment Cancellation
+
+The workflow uses a per-branch concurrency group and cancels in-progress runs for the same branch when a newer commit starts. If GitHub Pages logs `Error: Deployment cancelled` for an older run after another push, treat the newer run as the authoritative deployment and rerun only the latest workflow if it did not complete.
+
 ## Supabase Redirect URL
 
 After the first successful Pages deployment, copy the GitHub Pages URL and add it to Supabase Auth redirect URLs.
