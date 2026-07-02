@@ -68,6 +68,15 @@ describe('LoginPage', () => {
     expect(assign).toHaveBeenCalledWith('https://discord.example/oauth');
   });
 
+  it('keeps the login button responsive when Supabase is not configured', async () => {
+    renderLogin({ isConfigured: false });
+
+    fireEvent.click(screen.getByRole('button', { name: /login with discord/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/discord login is not configured/i);
+    expect(signInWithOAuth).not.toHaveBeenCalled();
+  });
+
   it('redirects signed-in users away from the login page', () => {
     renderLogin({ user: { id: 'user-1' } as AuthState['user'] });
 
