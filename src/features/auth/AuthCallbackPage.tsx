@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthProvider';
+import { useAuth } from './AuthContext';
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();

@@ -2,7 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import { getAuthRedirectUrl } from './authRedirect';
-import { useAuth } from './AuthProvider';
+import { useAuth } from './AuthContext';
 
 export function LoginPage() {
   const location = useLocation();
