@@ -3,6 +3,8 @@
 A small static application to organize nerd meetups, tabletop sessions, gaming nights, painting events, and other friend-group activities.
 
 See the [Questboard design document](docs/design.md) for the current product plan and MVP decisions.
+See the [Supabase setup guide](docs/supabase-setup.md) for Phase 2 database, RLS, and Discord OAuth setup notes.
+See the [GitHub Pages deployment guide](docs/github-pages.md) for static hosting setup.
 
 ## Phase 1 frontend scaffold
 
