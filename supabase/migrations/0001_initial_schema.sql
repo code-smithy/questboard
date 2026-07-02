@@ -2,7 +2,7 @@
 
 create extension if not exists pgcrypto;
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   discord_user_id text unique,
   display_name text not null,
@@ -12,7 +12,7 @@ create table public.profiles (
   is_site_admin boolean not null default false
 );
 
-create table public.groups (
+create table if not exists public.groups (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text,
@@ -22,7 +22,7 @@ create table public.groups (
   archived_at timestamptz
 );
 
-create table public.group_members (
+create table if not exists public.group_members (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.groups (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -32,7 +32,7 @@ create table public.group_members (
   unique (group_id, user_id)
 );
 
-create table public.group_invites (
+create table if not exists public.group_invites (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.groups (id) on delete cascade,
   token text not null unique,
@@ -44,7 +44,7 @@ create table public.group_invites (
   created_at timestamptz not null default now()
 );
 
-create table public.categories (
+create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.groups (id) on delete cascade,
   name text not null,
@@ -56,7 +56,7 @@ create table public.categories (
   unique (group_id, name)
 );
 
-create table public.locations (
+create table if not exists public.locations (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.groups (id) on delete cascade,
   name text not null,
@@ -70,7 +70,7 @@ create table public.locations (
   archived_at timestamptz
 );
 
-create table public.events (
+create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.groups (id) on delete cascade,
   category_id uuid references public.categories (id) on delete set null,
@@ -97,7 +97,7 @@ create table public.events (
   check (maximum_attendees is null or maximum_attendees >= minimum_attendees)
 );
 
-create table public.event_rsvps (
+create table if not exists public.event_rsvps (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -107,7 +107,7 @@ create table public.event_rsvps (
   unique (event_id, user_id)
 );
 
-create table public.event_comments (
+create table if not exists public.event_comments (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -117,7 +117,7 @@ create table public.event_comments (
   archived_at timestamptz
 );
 
-create table public.event_history (
+create table if not exists public.event_history (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
   changed_by uuid references public.profiles (id) on delete set null,
@@ -127,7 +127,7 @@ create table public.event_history (
   created_at timestamptz not null default now()
 );
 
-create table public.event_reminders (
+create table if not exists public.event_reminders (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -138,18 +138,18 @@ create table public.event_reminders (
   unique (event_id, user_id, remind_at, method)
 );
 
-create index profiles_discord_user_id_idx on public.profiles (discord_user_id);
-create index group_members_user_id_idx on public.group_members (user_id) where archived_at is null;
-create index group_members_group_id_idx on public.group_members (group_id) where archived_at is null;
-create index group_invites_token_idx on public.group_invites (token) where is_active;
-create index categories_group_id_sort_order_idx on public.categories (group_id, sort_order);
-create index locations_group_id_idx on public.locations (group_id) where archived_at is null;
-create index events_group_start_idx on public.events (group_id, start_at) where archived_at is null;
-create index events_public_start_idx on public.events (start_at) where visibility = 'public' and archived_at is null;
-create index event_rsvps_event_id_idx on public.event_rsvps (event_id);
-create index event_comments_event_id_idx on public.event_comments (event_id) where archived_at is null;
-create index event_history_event_id_created_at_idx on public.event_history (event_id, created_at desc);
-create index event_reminders_user_due_idx on public.event_reminders (user_id, remind_at) where not is_sent;
+create index if not exists profiles_discord_user_id_idx on public.profiles (discord_user_id);
+create index if not exists group_members_user_id_idx on public.group_members (user_id) where archived_at is null;
+create index if not exists group_members_group_id_idx on public.group_members (group_id) where archived_at is null;
+create index if not exists group_invites_token_idx on public.group_invites (token) where is_active;
+create index if not exists categories_group_id_sort_order_idx on public.categories (group_id, sort_order);
+create index if not exists locations_group_id_idx on public.locations (group_id) where archived_at is null;
+create index if not exists events_group_start_idx on public.events (group_id, start_at) where archived_at is null;
+create index if not exists events_public_start_idx on public.events (start_at) where visibility = 'public' and archived_at is null;
+create index if not exists event_rsvps_event_id_idx on public.event_rsvps (event_id);
+create index if not exists event_comments_event_id_idx on public.event_comments (event_id) where archived_at is null;
+create index if not exists event_history_event_id_created_at_idx on public.event_history (event_id, created_at desc);
+create index if not exists event_reminders_user_due_idx on public.event_reminders (user_id, remind_at) where not is_sent;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -161,14 +161,17 @@ begin
 end;
 $$;
 
+drop trigger if exists set_events_updated_at on public.events;
 create trigger set_events_updated_at
 before update on public.events
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_event_rsvps_updated_at on public.event_rsvps;
 create trigger set_event_rsvps_updated_at
 before update on public.event_rsvps
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_event_comments_updated_at on public.event_comments;
 create trigger set_event_comments_updated_at
 before update on public.event_comments
 for each row execute function public.set_updated_at();
@@ -197,6 +200,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();

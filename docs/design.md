@@ -204,9 +204,11 @@ Core event fields:
 
 Event modes:
 
-- `online`
-- `offline`
-- `hybrid`
+- `online`: remote events such as Discord voice sessions, Foundry VTT, Roll20, Steam multiplayer, Tabletop Simulator, or online painting hangouts. Online events should capture a platform label, URL/link, and free-text connection instructions.
+- `offline`: physical events with a reusable location or one-off location text, address, map URL, and optional notes such as parking or doorbell information.
+- `hybrid`: events that support both physical and remote attendance, combining physical location and online connection details. Distinguishing online and offline attendees can be added later.
+
+Events should support separate start and end timestamps so the app can represent evening sessions, all-day events, weekend events, and multi-day conventions or campaigns.
 
 Event statuses:
 
@@ -267,7 +269,11 @@ Users should be able to:
 - Filter by RSVP status.
 - Filter public/private if relevant.
 
-Mobile should use a list-first or compact month layout with large touch targets and full-screen event details.
+Event detail views should show title, category, date/time, status, minimum/maximum attendees, RSVP summary, attendee list for private member views, location or online details, description, comments, and edit/archive actions when permitted. Public event views must omit private attendee identities and internal discussion.
+
+Suggested event creation fields include title, category, group, date/time, repeat setting, online/offline/hybrid mode, location or online details, minimum and maximum attendees, visibility, reminder settings, and description.
+
+Mobile should use a list-first or compact month layout with large touch targets and full-screen event details. Desktop should prioritize a calendar-first layout with a side panel for filters and a modal or drawer for event details.
 
 ## Locations and Maps
 
@@ -349,6 +355,138 @@ Suggested Supabase tables:
 - `event_reminders`
 
 The schema should include per-event timezone, recurrence columns for future support, archived timestamps instead of hard deletes, reusable invite links, and safe public event visibility.
+
+### `profiles`
+
+- `id uuid primary key references auth.users(id)`
+- `discord_user_id text`
+- `display_name text`
+- `avatar_url text`
+- `created_at timestamptz`
+- `last_seen_at timestamptz`
+- `is_site_admin boolean`
+
+### `groups`
+
+- `id uuid primary key`
+- `name text`
+- `description text`
+- `theme text`
+- `created_by uuid references profiles(id)`
+- `created_at timestamptz`
+- `archived_at timestamptz`
+
+### `group_members`
+
+- `id uuid primary key`
+- `group_id uuid references groups(id)`
+- `user_id uuid references profiles(id)`
+- `role text -- group_admin | regular`
+- `joined_at timestamptz`
+- `archived_at timestamptz`
+
+### `group_invites`
+
+- `id uuid primary key`
+- `group_id uuid references groups(id)`
+- `token text unique`
+- `created_by uuid references profiles(id)`
+- `expires_at timestamptz`
+- `max_uses integer`
+- `used_count integer`
+- `is_active boolean`
+- `created_at timestamptz`
+
+### `categories`
+
+- `id uuid primary key`
+- `group_id uuid references groups(id)`
+- `name text`
+- `color text`
+- `icon text`
+- `sort_order integer`
+- `is_active boolean`
+- `created_at timestamptz`
+
+### `locations`
+
+- `id uuid primary key`
+- `group_id uuid references groups(id)`
+- `name text`
+- `address text`
+- `latitude numeric`
+- `longitude numeric`
+- `map_url text`
+- `notes text`
+- `created_by uuid references profiles(id)`
+- `created_at timestamptz`
+- `archived_at timestamptz`
+
+### `events`
+
+- `id uuid primary key`
+- `group_id uuid references groups(id)`
+- `category_id uuid references categories(id)`
+- `owner_id uuid references profiles(id)`
+- `title text`
+- `description text`
+- `start_at timestamptz`
+- `end_at timestamptz`
+- `timezone text`
+- `mode text -- online | offline | hybrid`
+- `location_id uuid references locations(id)`
+- `location_text text`
+- `online_details jsonb`
+- `minimum_attendees integer`
+- `maximum_attendees integer`
+- `visibility text -- private | public`
+- `status text -- draft | open | confirmed | cancelled | archived`
+- `recurrence_rule text`
+- `recurrence_parent_id uuid references events(id)`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+- `archived_at timestamptz`
+
+### `event_rsvps`
+
+- `id uuid primary key`
+- `event_id uuid references events(id)`
+- `user_id uuid references profiles(id)`
+- `status text -- attending | maybe | declined`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Add a unique constraint on `(event_id, user_id)`.
+
+### `event_comments`
+
+- `id uuid primary key`
+- `event_id uuid references events(id)`
+- `user_id uuid references profiles(id)`
+- `body text`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+- `archived_at timestamptz`
+
+### `event_history`
+
+- `id uuid primary key`
+- `event_id uuid references events(id)`
+- `changed_by uuid references profiles(id)`
+- `change_type text`
+- `old_value jsonb`
+- `new_value jsonb`
+- `created_at timestamptz`
+
+### `event_reminders`
+
+- `id uuid primary key`
+- `event_id uuid references events(id)`
+- `user_id uuid references profiles(id)`
+- `remind_at timestamptz`
+- `method text -- in_app | browser`
+- `is_sent boolean`
+- `created_at timestamptz`
 
 ## Row-Level Security Concept
 

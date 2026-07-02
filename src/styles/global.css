@@ -127,4 +127,86 @@ nav a:hover {
     flex: 1 1 auto;
     text-align: center;
   }
+
+  .header-actions {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .user-chip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  justify-content: flex-end;
+}
+
+.login-link,
+.secondary-button {
+  border: 1px solid rgba(240, 179, 90, 0.35);
+  border-radius: 999px;
+  padding: 0.65rem 0.95rem;
+  color: #f8ead2;
+  background: rgba(240, 179, 90, 0.1);
+  text-decoration: none;
+}
+
+.secondary-button {
+  font-size: 0.85rem;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #f8ead2;
+  font-size: 0.9rem;
+}
+
+.user-chip img {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid rgba(240, 179, 90, 0.45);
+  border-radius: 999px;
+}
+
+.details-list {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+}
+
+.details-list div {
+  border-top: 1px solid rgba(240, 179, 90, 0.18);
+  padding-top: 1rem;
+}
+
+.details-list dt {
+  color: #f0b35a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.details-list dd {
+  margin: 0.35rem 0 0;
+  color: #f8ead2;
+  overflow-wrap: anywhere;
+}
+
+.error-message {
+  overflow-x: auto;
+  border: 1px solid rgba(240, 179, 90, 0.28);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  color: #f8ead2;
+  background: rgba(15, 16, 21, 0.72);
+  white-space: pre-wrap;
 }

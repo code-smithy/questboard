@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseConfig } from './supabaseConfig';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseConfig = getSupabaseConfig(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const isSupabaseConfigured = supabaseConfig.isConfigured;
 
-export const supabase = createClient(supabaseUrl || 'http://localhost:54321', supabaseAnonKey || 'missing-anon-key');
+export const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);

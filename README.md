@@ -23,3 +23,7 @@ Questboard is scaffolded as a static Vite + React + TypeScript application.
 - `npm run build` type-checks and builds the static app.
 - `npm run preview` previews the production build locally.
 - `npm run lint` runs ESLint.
+
+## Phase 3 authentication scaffold
+
+The app now includes an auth provider, protected app routes, Discord OAuth login, logout, and basic profile sync against the `profiles` table. Configure Supabase and Discord OAuth before testing the login flow.

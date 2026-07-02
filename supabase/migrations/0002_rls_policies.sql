@@ -90,11 +90,13 @@ alter table public.event_comments enable row level security;
 alter table public.event_history enable row level security;
 alter table public.event_reminders enable row level security;
 
+drop policy if exists "Users can read their own profile" on public.profiles;
 create policy "Users can read their own profile"
 on public.profiles for select
 to authenticated
 using (id = auth.uid() or public.is_site_admin());
 
+drop policy if exists "Users can read profiles shared through groups" on public.profiles;
 create policy "Users can read profiles shared through groups"
 on public.profiles for select
 to authenticated
@@ -111,145 +113,178 @@ using (
   or public.is_site_admin()
 );
 
+drop policy if exists "Users can insert their own profile" on public.profiles;
+create policy "Users can insert their own profile"
+on public.profiles for insert
+to authenticated
+with check (id = auth.uid());
+
+drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile"
 on public.profiles for update
 to authenticated
 using (id = auth.uid())
 with check (id = auth.uid());
 
+drop policy if exists "Authenticated users can create groups" on public.groups;
 create policy "Authenticated users can create groups"
 on public.groups for insert
 to authenticated
 with check (created_by = auth.uid());
 
+drop policy if exists "Members can read their groups" on public.groups;
 create policy "Members can read their groups"
 on public.groups for select
 to authenticated
 using (public.is_group_member(id) or public.is_site_admin());
 
+drop policy if exists "Group admins can update groups" on public.groups;
 create policy "Group admins can update groups"
 on public.groups for update
 to authenticated
 using (public.is_group_admin(id) or public.is_site_admin())
 with check (public.is_group_admin(id) or public.is_site_admin());
 
+drop policy if exists "Members can read group memberships" on public.group_members;
 create policy "Members can read group memberships"
 on public.group_members for select
 to authenticated
 using (public.is_group_member(group_id) or public.is_site_admin());
 
+drop policy if exists "Group admins can manage memberships" on public.group_members;
 create policy "Group admins can manage memberships"
 on public.group_members for all
 to authenticated
 using (public.is_group_admin(group_id) or public.is_site_admin())
 with check (public.is_group_admin(group_id) or public.is_site_admin());
 
+drop policy if exists "Admins can create invites" on public.group_invites;
 create policy "Admins can create invites"
 on public.group_invites for insert
 to authenticated
 with check ((public.is_group_admin(group_id) or public.is_site_admin()) and created_by = auth.uid());
 
+drop policy if exists "Admins can read invites" on public.group_invites;
 create policy "Admins can read invites"
 on public.group_invites for select
 to authenticated
 using (public.is_group_admin(group_id) or public.is_site_admin());
 
+drop policy if exists "Admins can update invites" on public.group_invites;
 create policy "Admins can update invites"
 on public.group_invites for update
 to authenticated
 using (public.is_group_admin(group_id) or public.is_site_admin())
 with check (public.is_group_admin(group_id) or public.is_site_admin());
 
+drop policy if exists "Members can read active categories" on public.categories;
 create policy "Members can read active categories"
 on public.categories for select
 to authenticated
 using (public.is_group_member(group_id) or public.is_site_admin());
 
+drop policy if exists "Group admins can manage categories" on public.categories;
 create policy "Group admins can manage categories"
 on public.categories for all
 to authenticated
 using (public.is_group_admin(group_id) or public.is_site_admin())
 with check (public.is_group_admin(group_id) or public.is_site_admin());
 
+drop policy if exists "Members can read locations" on public.locations;
 create policy "Members can read locations"
 on public.locations for select
 to authenticated
 using (public.is_group_member(group_id) or public.is_site_admin());
 
+drop policy if exists "Members can create locations" on public.locations;
 create policy "Members can create locations"
 on public.locations for insert
 to authenticated
 with check (public.is_group_member(group_id) and created_by = auth.uid());
 
+drop policy if exists "Location creators and admins can update locations" on public.locations;
 create policy "Location creators and admins can update locations"
 on public.locations for update
 to authenticated
 using (created_by = auth.uid() or public.is_group_admin(group_id) or public.is_site_admin())
 with check (created_by = auth.uid() or public.is_group_admin(group_id) or public.is_site_admin());
 
+drop policy if exists "Members can read group events" on public.events;
 create policy "Members can read group events"
 on public.events for select
 to authenticated
 using (public.is_group_member(group_id) or public.is_site_admin());
 
+drop policy if exists "Members can create events" on public.events;
 create policy "Members can create events"
 on public.events for insert
 to authenticated
 with check (public.is_group_member(group_id) and owner_id = auth.uid());
 
+drop policy if exists "Owners and admins can update events" on public.events;
 create policy "Owners and admins can update events"
 on public.events for update
 to authenticated
 using (owner_id = auth.uid() or public.is_group_admin(group_id) or public.is_site_admin())
 with check (owner_id = auth.uid() or public.is_group_admin(group_id) or public.is_site_admin());
 
+drop policy if exists "Members can read event RSVPs" on public.event_rsvps;
 create policy "Members can read event RSVPs"
 on public.event_rsvps for select
 to authenticated
 using (public.is_event_group_member(event_id) or public.is_site_admin());
 
+drop policy if exists "Users can create their own RSVP" on public.event_rsvps;
 create policy "Users can create their own RSVP"
 on public.event_rsvps for insert
 to authenticated
 with check (user_id = auth.uid() and public.is_event_group_member(event_id));
 
+drop policy if exists "Users can update their own RSVP" on public.event_rsvps;
 create policy "Users can update their own RSVP"
 on public.event_rsvps for update
 to authenticated
 using (user_id = auth.uid() or public.is_event_group_admin(event_id) or public.is_site_admin())
 with check (user_id = auth.uid() or public.is_event_group_admin(event_id) or public.is_site_admin());
 
+drop policy if exists "Members can read comments" on public.event_comments;
 create policy "Members can read comments"
 on public.event_comments for select
 to authenticated
 using (public.is_event_group_member(event_id) or public.is_site_admin());
 
+drop policy if exists "Members can create comments" on public.event_comments;
 create policy "Members can create comments"
 on public.event_comments for insert
 to authenticated
 with check (user_id = auth.uid() and public.is_event_group_member(event_id));
 
+drop policy if exists "Authors and admins can update comments" on public.event_comments;
 create policy "Authors and admins can update comments"
 on public.event_comments for update
 to authenticated
 using (user_id = auth.uid() or public.is_event_group_admin(event_id) or public.is_site_admin())
 with check (user_id = auth.uid() or public.is_event_group_admin(event_id) or public.is_site_admin());
 
+drop policy if exists "Members can read event history" on public.event_history;
 create policy "Members can read event history"
 on public.event_history for select
 to authenticated
 using (public.is_event_group_member(event_id) or public.is_site_admin());
 
+drop policy if exists "Owners and admins can insert event history" on public.event_history;
 create policy "Owners and admins can insert event history"
 on public.event_history for insert
 to authenticated
 with check (public.is_event_group_member(event_id) and (changed_by = auth.uid() or changed_by is null));
 
+drop policy if exists "Users can read their reminders" on public.event_reminders;
 create policy "Users can read their reminders"
 on public.event_reminders for select
 to authenticated
 using (user_id = auth.uid() or public.is_site_admin());
 
+drop policy if exists "Users can manage their reminders" on public.event_reminders;
 create policy "Users can manage their reminders"
 on public.event_reminders for all
 to authenticated
@@ -297,6 +332,7 @@ $$;
 
 grant execute on function public.accept_group_invite(text) to authenticated;
 
+drop view if exists public.public_event_cards;
 create view public.public_event_cards
 with (security_barrier = true)
 as
