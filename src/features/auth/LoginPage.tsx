@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { getAuthRedirectUrl } from './authRedirect';
+import { getInvalidDiscordClientIdMessage } from './discordOAuth';
 import { useAuth } from './AuthContext';
 
 export function LoginPage() {
@@ -40,6 +41,13 @@ export function LoginPage() {
 
       if (!data.url) {
         setAuthError('Discord login did not return a redirect URL. Please check the Supabase Discord provider setup.');
+        setIsSigningIn(false);
+        return;
+      }
+
+      const invalidDiscordClientIdMessage = getInvalidDiscordClientIdMessage(data.url);
+      if (invalidDiscordClientIdMessage) {
+        setAuthError(invalidDiscordClientIdMessage);
         setIsSigningIn(false);
         return;
       }
