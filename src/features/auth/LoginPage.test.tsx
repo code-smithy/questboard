@@ -68,6 +68,19 @@ describe('LoginPage', () => {
     expect(assign).toHaveBeenCalledWith('https://discord.example/oauth');
   });
 
+  it('shows a setup error instead of redirecting when Discord returns a non-snowflake client id', async () => {
+    signInWithOAuth.mockResolvedValue({
+      data: { url: 'https://discord.com/oauth2/authorize?client_id=questboard&response_type=code' },
+      error: null,
+    });
+    renderLogin();
+
+    fireEvent.click(screen.getByRole('button', { name: /login with discord/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/invalid client id \(questboard\)/i);
+    expect(assign).not.toHaveBeenCalled();
+  });
+
   it('keeps the login button responsive when Supabase is not configured', async () => {
     renderLogin({ isConfigured: false });
 
