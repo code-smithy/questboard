@@ -1,3 +1,3 @@
-export function getAuthRedirectUrl() {
-  return new URL(import.meta.env.BASE_URL, window.location.origin).toString();
+export function getAuthRedirectUrl(origin = window.location.origin, basePath = import.meta.env.BASE_URL) {
+  return new URL(basePath, origin).toString();
 }

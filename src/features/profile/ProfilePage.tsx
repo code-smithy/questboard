@@ -1,4 +1,4 @@
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth } from '../auth/AuthContext';
 
 export function ProfilePage() {
   const { profile, user } = useAuth();
