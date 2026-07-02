@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { useAuth } from '../features/auth/AuthProvider';
+import { useAuth } from '../features/auth/AuthContext';
 
 const navItems = [
   { to: '/calendar', label: 'Calendar' },
