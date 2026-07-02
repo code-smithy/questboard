@@ -5,9 +5,12 @@ import { AuthContext } from './AuthContext';
 import type { AuthState } from './AuthContext';
 import { LoginPage } from './LoginPage';
 
-const { signInWithOAuth } = vi.hoisted(() => ({
+const { assign, signInWithOAuth } = vi.hoisted(() => ({
+  assign: vi.fn(),
   signInWithOAuth: vi.fn(),
 }));
+
+vi.stubGlobal('location', { ...window.location, assign });
 
 vi.mock('../../lib/supabase', () => ({
   isSupabaseConfigured: true,
@@ -43,7 +46,9 @@ function renderLogin(authState: Partial<AuthState> = {}) {
 
 describe('LoginPage', () => {
   beforeEach(() => {
+    assign.mockReset();
     signInWithOAuth.mockReset();
+    signInWithOAuth.mockResolvedValue({ data: { url: 'https://discord.example/oauth' }, error: null });
   });
 
   it('starts Discord OAuth through Supabase when the button is clicked', async () => {
@@ -56,9 +61,11 @@ describe('LoginPage', () => {
         provider: 'discord',
         options: {
           redirectTo: expect.any(String),
+          skipBrowserRedirect: true,
         },
       });
     });
+    expect(assign).toHaveBeenCalledWith('https://discord.example/oauth');
   });
 
   it('redirects signed-in users away from the login page', () => {
