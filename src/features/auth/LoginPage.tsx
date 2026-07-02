@@ -1,16 +1,28 @@
+import { Navigate, useLocation } from 'react-router-dom';
+import type { Location } from 'react-router-dom';
 import { isSupabaseConfigured, supabase } from '../../lib/supabase';
+import { getAuthRedirectUrl } from './authRedirect';
+import { useAuth } from './AuthProvider';
 
 export function LoginPage() {
+  const location = useLocation();
+  const { isLoading, user } = useAuth();
+  const redirectTo = (location.state as { from?: Location } | null)?.from?.pathname ?? '/calendar';
+
   const signInWithDiscord = async () => {
     if (!isSupabaseConfigured) return;
 
     await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: getAuthRedirectUrl(),
       },
     });
   };
+
+  if (!isLoading && user) {
+    return <Navigate to={redirectTo} replace />;
+  }
 
   return (
     <section className="panel hero-panel">
@@ -20,7 +32,9 @@ export function LoginPage() {
       <button type="button" onClick={signInWithDiscord} disabled={!isSupabaseConfigured}>
         Login with Discord
       </button>
-      {!isSupabaseConfigured && <p className="hint">Add Supabase values to your environment to enable login.</p>}
+      {!isSupabaseConfigured && (
+        <p className="hint">Add Supabase values to your environment or GitHub Actions variables to enable login.</p>
+      )}
     </section>
   );
 }

@@ -111,6 +111,11 @@ using (
   or public.is_site_admin()
 );
 
+create policy "Users can insert their own profile"
+on public.profiles for insert
+to authenticated
+with check (id = auth.uid());
+
 create policy "Users can update their own profile"
 on public.profiles for update
 to authenticated
