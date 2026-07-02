@@ -12,7 +12,7 @@ Create a Supabase project, then apply the migrations in `supabase/migrations` in
 
 ## Discord OAuth
 
-Configure Discord as a Supabase Auth provider and set the application callback URL to the deployed Questboard origin. For local development, also allow the Vite dev origin.
+Configure Discord as a Supabase Auth provider and set the application callback URL to the deployed Questboard origin. For local development, also allow the Vite dev origin. The Discord provider Client ID must be the numeric Discord application ID, also called a snowflake (for example, `123456789012345678`), not the application name such as `questboard`.
 
 The frontend expects these variables:
 
