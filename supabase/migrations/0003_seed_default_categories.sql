@@ -36,6 +36,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_group_created_seed_defaults on public.groups;
 create trigger on_group_created_seed_defaults
 after insert on public.groups
 for each row execute function public.handle_new_group_defaults();
