@@ -12,7 +12,15 @@
       window.setTimeout(() => {
         const root = document.getElementById('root');
 
-        if (!root || root.childElementCount > 0 || root.textContent.trim()) {
+        const sourceEntrypoint = Array.from(document.querySelectorAll('script[type="module"][src]')).some((script) => {
+          try {
+            return new URL(script.getAttribute('src'), window.location.href).pathname.endsWith('/src/main.tsx');
+          } catch {
+            return false;
+          }
+        });
+
+        if (!sourceEntrypoint || !root || root.childElementCount > 0 || root.textContent.trim()) {
           return;
         }
 
@@ -38,7 +46,7 @@
             </section>
           </main>
         `;
-      }, 2000);
+      }, 4000);
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
