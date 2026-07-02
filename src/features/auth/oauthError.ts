@@ -32,3 +32,13 @@ export function getOAuthErrorFromLocation(location: Pick<Location, 'hash' | 'sea
   const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
   return readOAuthError(new URLSearchParams(hash));
 }
+
+
+export function hasOAuthCallbackParams(location: Pick<Location, 'search'> = window.location) {
+  const params = new URLSearchParams(location.search);
+  return params.has('auth_callback') || params.has('code') || params.has('error') || params.has('error_description');
+}
+
+export function getOAuthCodeFromLocation(location: Pick<Location, 'search'> = window.location) {
+  return new URLSearchParams(location.search).get('code');
+}

@@ -5,6 +5,7 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import { AuthContext } from './AuthContext';
 import type { AuthState } from './AuthContext';
 import type { Profile } from './types';
+import { getOAuthCodeFromLocation } from './oauthError';
 
 function getDisplayName(user: User) {
   return (
@@ -77,6 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        const oauthCode = getOAuthCodeFromLocation();
+        if (oauthCode) {
+          await supabase.auth.exchangeCodeForSession(oauthCode);
+        }
+
         const {
           data: { session: currentSession },
         } = await supabase.auth.getSession();
