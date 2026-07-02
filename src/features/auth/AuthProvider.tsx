@@ -5,6 +5,7 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import { AuthContext } from './AuthContext';
 import type { AuthState } from './AuthContext';
 import type { Profile } from './types';
+import { getOAuthCodeFromLocation } from './oauthError';
 
 function getDisplayName(user: User) {
   return (
@@ -59,7 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setProfile(await upsertProfile(user));
+    try {
+      setProfile(await upsertProfile(user));
+    } catch (error) {
+      console.error('Questboard could not sync the signed-in profile', error);
+      setProfile(null);
+    }
   };
 
   useEffect(() => {
@@ -71,19 +77,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
+      try {
+        const oauthCode = getOAuthCodeFromLocation();
+        if (oauthCode) {
+          await supabase.auth.exchangeCodeForSession(oauthCode);
+        }
 
-      if (!isMounted) return;
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
 
-      setSession(currentSession);
+        if (!isMounted) return;
 
-      if (currentSession?.user) {
-        setProfile(await upsertProfile(currentSession.user));
+        setSession(currentSession);
+
+        if (currentSession?.user) {
+          try {
+            setProfile(await upsertProfile(currentSession.user));
+          } catch (error) {
+            console.error('Questboard could not sync the signed-in profile', error);
+            setProfile(null);
+          }
+        }
+      } catch (error) {
+        console.error('Questboard could not load the auth session', error);
+        if (isMounted) {
+          setSession(null);
+          setProfile(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-
-      setIsLoading(false);
     };
 
     void loadSession();
@@ -94,7 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
 
       if (nextSession?.user) {
-        void upsertProfile(nextSession.user).then(setProfile);
+        void upsertProfile(nextSession.user)
+          .then(setProfile)
+          .catch((error) => {
+            console.error('Questboard could not sync the signed-in profile', error);
+            setProfile(null);
+          });
       } else {
         setProfile(null);
       }

@@ -1,6 +1,7 @@
-import { createHashRouter, Navigate } from 'react-router-dom';
+import { createHashRouter } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { AuthCallbackPage } from '../features/auth/AuthCallbackPage';
+import { AuthIndexRoute } from '../features/auth/AuthIndexRoute';
 import { LoginPage } from '../features/auth/LoginPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { CalendarPage } from '../features/calendar/CalendarPage';
@@ -15,7 +16,7 @@ export const router = createHashRouter([
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true, element: <Navigate to="/calendar" replace /> },
+      { index: true, element: <AuthIndexRoute /> },
       { path: 'login', element: <LoginPage /> },
       { path: 'auth/callback', element: <AuthCallbackPage /> },
       { path: 'join/:inviteToken', element: <JoinInvitePage /> },
@@ -29,6 +30,7 @@ export const router = createHashRouter([
           { path: 'profile', element: <ProfilePage /> },
         ],
       },
+      { path: '*', element: <AuthCallbackPage /> },
     ],
   },
 ]);
