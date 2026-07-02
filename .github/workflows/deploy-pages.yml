@@ -2,7 +2,7 @@ name: Deploy static site to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -17,9 +17,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     env:
-      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,8 +32,15 @@ jobs:
         with:
           node-version: 20
 
+      - name: Ensure Pages deploys from Actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method PUT repos/${{ github.repository }}/pages -f build_type=workflow --silent || \
+            echo "::warning::Could not switch Pages to GitHub Actions automatically. In Settings → Pages, set Build and deployment → Source to GitHub Actions."
+
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build
         run: npm run build
