@@ -18,6 +18,14 @@ describe('getSupabaseConfig', () => {
     });
   });
 
+  it('normalizes REST endpoint URLs copied from API settings', () => {
+    expect(getSupabaseConfig('https://project.supabase.co/rest/v1/', 'anon-key')).toEqual({
+      isConfigured: true,
+      url: 'https://project.supabase.co',
+      anonKey: 'anon-key',
+    });
+  });
+
   it('falls back safely when deployment variables are missing', () => {
     expect(getSupabaseConfig(undefined, undefined)).toEqual({
       isConfigured: false,
