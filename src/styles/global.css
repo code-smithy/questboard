@@ -41,6 +41,42 @@ button:disabled {
   opacity: 0.55;
 }
 
+input,
+textarea {
+  width: 100%;
+  border: 1px solid rgba(240, 179, 90, 0.32);
+  border-radius: 0.75rem;
+  padding: 0.78rem 0.9rem;
+  color: #f8ead2;
+  background: rgba(15, 16, 21, 0.46);
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  color: #f0b35a;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+code {
+  display: block;
+  overflow-wrap: anywhere;
+  border: 1px solid rgba(240, 179, 90, 0.2);
+  border-radius: 0.65rem;
+  margin-top: 0.5rem;
+  padding: 0.65rem;
+  color: #f8ead2;
+  background: rgba(15, 16, 21, 0.52);
+}
+
 .app-shell {
   width: min(1120px, calc(100% - 2rem));
   margin: 0 auto;
@@ -103,6 +139,11 @@ nav a:hover {
   line-height: 1.7;
 }
 
+.panel h3 {
+  margin: 0 0 0.85rem;
+  font-size: 1.25rem;
+}
+
 .eyebrow {
   margin: 0 0 0.35rem;
   color: #f0b35a;
@@ -115,6 +156,120 @@ nav a:hover {
 .hint {
   color: #bfae95;
   font-size: 0.9rem;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-heading.compact {
+  margin-bottom: 1rem;
+}
+
+.section-heading p {
+  margin-top: 0;
+}
+
+.two-column-layout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.9fr) minmax(18rem, 1.1fr);
+  gap: 1.25rem;
+}
+
+.stack {
+  display: grid;
+  align-content: start;
+  gap: 1.25rem;
+}
+
+.form-card,
+.detail-panel,
+.invite-panel {
+  border: 1px solid rgba(240, 179, 90, 0.2);
+  border-radius: 0.9rem;
+  padding: 1.1rem;
+  background: rgba(15, 16, 21, 0.28);
+}
+
+.form-card {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.inline-form {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(8rem, 0.6fr) auto;
+  gap: 0.85rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.item-list,
+.invite-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.list-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  border: 1px solid rgba(240, 179, 90, 0.25);
+  border-radius: 0.85rem;
+  padding: 0.85rem 1rem;
+  color: #f8ead2;
+  background: rgba(240, 179, 90, 0.08);
+  text-align: left;
+}
+
+.list-button.is-selected,
+.list-button:hover {
+  border-color: rgba(240, 179, 90, 0.58);
+  background: rgba(240, 179, 90, 0.16);
+}
+
+.list-button small {
+  color: #f0b35a;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.invite-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(240, 179, 90, 0.18);
+  padding-top: 1rem;
+}
+
+.invite-card strong {
+  color: #f8ead2;
+}
+
+.status-message,
+.error-text {
+  border-radius: 0.75rem;
+  padding: 0.8rem 0.95rem;
+}
+
+.status-message {
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  color: #bbf7d0;
+  background: rgba(22, 101, 52, 0.22);
+}
+
+.error-text {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.28);
 }
 
 @media (max-width: 720px) {
@@ -136,6 +291,16 @@ nav a:hover {
   .user-chip {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .section-heading,
+  .invite-card {
+    flex-direction: column;
+  }
+
+  .two-column-layout,
+  .inline-form {
+    grid-template-columns: 1fr;
   }
 }
 
