@@ -35,6 +35,12 @@ For a project page, the URL usually looks like:
 https://OWNER.github.io/REPOSITORY
 ```
 
+Do not use `/dist/` in the public URL. The workflow uploads the contents of
+`dist` as the Pages artifact, so `dist/index.html` becomes the root page at
+`https://OWNER.github.io/REPOSITORY/`. If `https://OWNER.github.io/REPOSITORY/dist/`
+loads, GitHub Pages is serving the repository branch layout or stale checked-in
+build output instead of the Actions artifact.
+
 For local development, also allow:
 
 ```text
@@ -54,3 +60,8 @@ If you use a custom domain or user/organization page, set this Actions variable 
 ```text
 VITE_BASE_PATH=/
 ```
+
+For normal repository project pages such as `https://code-smithy.github.io/questboard/`,
+leave `VITE_BASE_PATH` unset. Setting it to `/` makes the generated HTML request
+assets from `https://code-smithy.github.io/assets/...` instead of
+`https://code-smithy.github.io/questboard/assets/...`.

@@ -58,6 +58,15 @@ jobs:
           test -f dist/.nojekyll
           ! grep -q '<script type="module" src="/src/main.tsx"' dist/index.html
           test -n "$(find dist/assets -maxdepth 1 -type f -name '*.js' -print -quit)"
+          repository_name="${GITHUB_REPOSITORY#*/}"
+          repository_owner="${GITHUB_REPOSITORY%%/*}"
+          expected_base="${VITE_BASE_PATH:-/${repository_name}/}"
+          if [ "${VITE_BASE_PATH}" = "/" ] && [ "${repository_name}" != "${repository_owner}.github.io" ] && [ ! -f public/CNAME ]; then
+            echo "::error::VITE_BASE_PATH=/ is for custom domains or user/organization pages. For https://${repository_owner}.github.io/${repository_name}/, remove VITE_BASE_PATH so assets build under /${repository_name}/."
+            exit 1
+          fi
+          grep -q "src=\"${expected_base}assets/" dist/index.html
+          grep -q "href=\"${expected_base}assets/" dist/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

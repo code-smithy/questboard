@@ -2,12 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="icon" type="image/png" href="/questboard/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Questboard helps friend groups plan tabletop, gaming, painting, and hobby events." />
     <title>Questboard</title>
-    <script type="module" crossorigin src="/assets/index-oQhxcRLk.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DoC4uKHh.css">
+    <script type="module" crossorigin src="/questboard/assets/index-BqZOZvRR.js"></script>
+    <link rel="stylesheet" crossorigin href="/questboard/assets/index-DoC4uKHh.css">
   </head>
   <body>
     <div id="root">
@@ -32,13 +32,6 @@
             return false;
           }
         });
-        if (sourceEntrypoint && !window.location.pathname.includes('/dist/')) {
-          const distUrl = new URL('dist/', window.location.href);
-          distUrl.search = window.location.search;
-          distUrl.hash = window.location.hash;
-          window.location.replace(distUrl.toString());
-          return;
-        }
 
         const title = sourceEntrypoint ? 'Deployment check' : 'Loading check';
         const message = sourceEntrypoint

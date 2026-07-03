@@ -30,13 +30,6 @@
             return false;
           }
         });
-        if (sourceEntrypoint && !window.location.pathname.includes('/dist/')) {
-          const distUrl = new URL('dist/', window.location.href);
-          distUrl.search = window.location.search;
-          distUrl.hash = window.location.hash;
-          window.location.replace(distUrl.toString());
-          return;
-        }
 
         const title = sourceEntrypoint ? 'Deployment check' : 'Loading check';
         const message = sourceEntrypoint
