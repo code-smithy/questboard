@@ -25,20 +25,28 @@ function readOAuthError(params: URLSearchParams): OAuthError | null {
   };
 }
 
+function getHashParams(hashValue: string) {
+  const hash = hashValue.startsWith('#') ? hashValue.slice(1) : hashValue;
+  const queryStart = hash.indexOf('?');
+  const params = queryStart >= 0 ? hash.slice(queryStart + 1) : hash;
+  return new URLSearchParams(params);
+}
+
 export function getOAuthErrorFromLocation(location: Pick<Location, 'hash' | 'search'> = window.location) {
   const searchError = readOAuthError(new URLSearchParams(location.search));
   if (searchError) return searchError;
 
-  const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
-  return readOAuthError(new URLSearchParams(hash));
+  return readOAuthError(getHashParams(location.hash));
 }
 
-
-export function hasOAuthCallbackParams(location: Pick<Location, 'search'> = window.location) {
-  const params = new URLSearchParams(location.search);
-  return params.has('auth_callback') || params.has('code') || params.has('error') || params.has('error_description');
+export function hasOAuthCallbackParams(location: Pick<Location, 'hash' | 'search'> = window.location) {
+  const searchParams = new URLSearchParams(location.search);
+  const hashParams = getHashParams(location.hash);
+  return [searchParams, hashParams].some((params) =>
+    ['auth_callback', 'code', 'error', 'error_description'].some((key) => params.has(key)),
+  );
 }
 
-export function getOAuthCodeFromLocation(location: Pick<Location, 'search'> = window.location) {
-  return new URLSearchParams(location.search).get('code');
+export function getOAuthCodeFromLocation(location: Pick<Location, 'hash' | 'search'> = window.location) {
+  return new URLSearchParams(location.search).get('code') ?? getHashParams(location.hash).get('code');
 }
