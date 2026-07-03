@@ -99,20 +99,16 @@ export async function listUserGroups(userId: string): Promise<GroupSummary[]> {
 }
 
 export async function createGroup({ name, description, theme, createdBy }: CreateGroupInput) {
-  const { data, error } = await supabase
-    .from('groups')
-    .insert({
-      name: name.trim(),
-      description: normalizeOptionalText(description),
-      theme: normalizeOptionalText(theme),
-      created_by: createdBy,
-    })
-    .select('id')
-    .single();
+  const { data, error } = await supabase.rpc('create_group_with_defaults', {
+    group_name: name.trim(),
+    group_description: normalizeOptionalText(description),
+    group_theme: normalizeOptionalText(theme),
+    group_created_by: createdBy,
+  });
 
   if (error) throw error;
 
-  return data as { id: string };
+  return { id: data as string };
 }
 
 export async function listGroupInvites(groupId: string): Promise<GroupInvite[]> {
