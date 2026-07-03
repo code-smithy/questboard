@@ -2,7 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="%BASE_URL%favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Questboard helps friend groups plan tabletop, gaming, painting, and hobby events." />
     <title>Questboard</title>
@@ -31,12 +30,20 @@
           }
         });
 
-        const title = sourceEntrypoint ? 'Deployment check' : 'Loading check';
+        if (sourceEntrypoint && !window.location.pathname.endsWith('/dist/')) {
+          const fallbackUrl = new URL('dist/', window.location.href);
+          fallbackUrl.search = window.location.search;
+          fallbackUrl.hash = window.location.hash;
+          window.location.replace(fallbackUrl);
+          return;
+        }
+
+        const title = sourceEntrypoint ? 'Deployment fallback check' : 'Loading check';
         const message = sourceEntrypoint
-          ? 'This page is serving the source <code style="color: #f8d49a;">/src/main.tsx</code> entrypoint instead of the built Vite files. On GitHub Pages, that usually means Pages is set to deploy from the repository branch instead of the GitHub Actions artifact.'
+          ? 'This page is serving the source <code style="color: #f8d49a;">/src/main.tsx</code> entrypoint instead of the built Vite files, and the committed <code style="color: #f8d49a;">/dist/</code> fallback could not be opened automatically.'
           : 'The built Questboard app did not start. On GitHub Pages, that usually means the deployed asset path is wrong, the JavaScript bundle failed to download, or the build finished without the expected Vite environment variables.';
         const nextSteps = sourceEntrypoint
-          ? '<li>Open the repository on GitHub.</li><li>Go to <strong>Settings → Pages</strong>.</li><li>Set <strong>Build and deployment → Source</strong> to <strong>GitHub Actions</strong>.</li><li>Go to <strong>Actions</strong> and rerun the Pages deployment workflow.</li>'
+          ? '<li>Open <a style="color: #f8d49a;" href="./dist/">the committed dist fallback</a>.</li><li>Open the repository on GitHub.</li><li>Go to <strong>Settings → Pages</strong>.</li><li>Set <strong>Build and deployment → Source</strong> to <strong>GitHub Actions</strong>.</li><li>Go to <strong>Actions</strong> and rerun the Pages deployment workflow.</li>'
           : '<li>Open the browser developer tools and check the Console and Network tabs for failed JavaScript assets.</li><li>If assets return 404, verify the repository variable <strong>VITE_BASE_PATH</strong> matches the Pages URL.</li><li>Go to <strong>Actions</strong> and confirm the Pages deployment workflow completed successfully.</li><li>Rerun the Pages deployment workflow after changing repository or environment variables.</li>';
 
         root.innerHTML = `

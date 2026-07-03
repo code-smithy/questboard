@@ -18,6 +18,7 @@ function getGitHubPagesBase() {
 
 export default defineConfig({
   base: getGitHubPagesBase(),
+  publicDir: process.env.VITE_BRANCH_FALLBACK === '1' ? false : 'public',
   plugins: [react()],
   test: {
     environment: 'jsdom',

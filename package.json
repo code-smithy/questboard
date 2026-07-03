@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:pages-branch": "VITE_BASE_PATH=./ VITE_BRANCH_FALLBACK=1 npm run build && touch dist/.nojekyll"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
