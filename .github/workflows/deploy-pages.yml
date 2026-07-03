@@ -36,8 +36,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api --method PUT repos/${{ github.repository }}/pages -f build_type=workflow --silent || \
-            echo "::warning::Could not switch Pages to GitHub Actions automatically. In Settings → Pages, set Build and deployment → Source to GitHub Actions."
+          gh api --method PUT repos/${{ github.repository }}/pages -f build_type=workflow --silent
 
       - name: Install dependencies
         run: npm ci
@@ -86,3 +85,24 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Verify live Pages deployment
+        run: |
+          page_url="${{ steps.deployment.outputs.page_url }}"
+          for attempt in $(seq 1 12); do
+            html="$(curl -fsSL "${page_url}")"
+            if echo "${html}" | grep -q '<script type="module" src="/src/main.tsx"'; then
+              echo "Attempt ${attempt}: GitHub Pages is still serving the unbuilt source index."
+            elif echo "${html}" | grep -q '%BASE_URL%'; then
+              echo "Attempt ${attempt}: GitHub Pages is still serving the unprocessed source index."
+            elif echo "${html}" | grep -q '<script type="module" crossorigin src="'; then
+              echo "Live Pages deployment is serving the built Vite artifact."
+              exit 0
+            else
+              echo "Attempt ${attempt}: live page did not contain the expected Vite script tag yet."
+            fi
+            sleep 10
+          done
+
+          echo "::error::GitHub Pages did not serve the built artifact at ${page_url}. In Settings -> Pages, set Build and deployment -> Source to GitHub Actions, then rerun this workflow."
+          exit 1

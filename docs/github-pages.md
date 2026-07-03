@@ -19,7 +19,9 @@ VITE_BASE_PATH=/
 
 The workflow also accepts `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Actions secrets for repositories that prefer secret storage, but `VITE_BASE_PATH` must be an Actions variable. Use the project URL without `/rest/v1`; if that suffix is copied accidentally, the app normalizes it at runtime. The Supabase publishable key is designed to be used by browser clients, but keeping project-specific values in GitHub Actions variables avoids hard-coding one Supabase project into source control. The Pages workflow builds in the `github-pages` environment so environment-level variables are available during the Vite build.
 
-The workflow also tries to switch the repository Pages build type to **GitHub Actions** through the GitHub Pages API before building. If that step emits a warning, set the Pages source manually; otherwise GitHub's branch-based `pages-build-deployment` workflow can publish the repository source `index.html`, which leaves the browser stuck on `Loading Questboard…` and tries to load `/src/main.tsx`.
+The workflow also switches the repository Pages build type to **GitHub Actions** through the GitHub Pages API before building. If that step fails, fix **Settings -> Pages -> Build and deployment -> Source** manually before rerunning the workflow. Otherwise GitHub's branch-based `pages-build-deployment` workflow can publish the repository source `index.html`, which leaves the browser stuck on the deployment check and tries to load `/src/main.tsx`.
+
+If the live page source contains `%BASE_URL%` or `/src/main.tsx`, GitHub Pages is serving raw repository source, not the Vite artifact. This is a Pages source/settings problem, not a Discord OAuth redirect problem.
 
 ## Deployment Cancellation
 
