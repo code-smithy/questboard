@@ -5,7 +5,7 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import { AuthContext } from './AuthContext';
 import type { AuthState } from './AuthContext';
 import type { Profile } from './types';
-import { getOAuthCodeFromLocation } from './oauthError';
+import { getOAuthCodeFromLocation, getOAuthTokenSessionFromLocation, hasOAuthCallbackParams } from './oauthError';
 
 function getDisplayName(user: User) {
   return (
@@ -37,6 +37,12 @@ async function upsertProfile(user: User) {
   }
 
   return data as Profile;
+}
+
+function cleanOAuthCallbackUrl() {
+  if (!hasOAuthCallbackParams()) return;
+
+  window.history.replaceState(window.history.state, document.title, `${window.location.pathname}#/auth/callback`);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -79,8 +85,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const oauthCode = getOAuthCodeFromLocation();
+        let didHandleOAuthCallback = false;
+
         if (oauthCode) {
           await supabase.auth.exchangeCodeForSession(oauthCode);
+          didHandleOAuthCallback = true;
+        } else {
+          const tokenSession = getOAuthTokenSessionFromLocation();
+          if (tokenSession) {
+            await supabase.auth.setSession({
+              access_token: tokenSession.accessToken,
+              refresh_token: tokenSession.refreshToken,
+            });
+            didHandleOAuthCallback = true;
+          }
+        }
+
+        if (didHandleOAuthCallback) {
+          cleanOAuthCallbackUrl();
         }
 
         const {
