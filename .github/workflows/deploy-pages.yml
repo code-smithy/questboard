@@ -42,6 +42,9 @@ jobs:
             exit 1
           fi
 
+      - name: Verify no committed build artifacts
+        run: npm run verify:no-committed-build
+
       - name: Build
         run: npm run build
 

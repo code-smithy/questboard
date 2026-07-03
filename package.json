@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "build:pages-branch": "node scripts/build-pages-branch.mjs"
+    "build:pages-branch": "node scripts/build-pages-branch.mjs",
+    "verify:no-committed-build": "node scripts/verify-no-committed-build.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
