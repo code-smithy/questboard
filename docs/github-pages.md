@@ -69,3 +69,36 @@ For normal repository project pages such as `https://code-smithy.github.io/quest
 leave `VITE_BASE_PATH` unset. Setting it to `/` makes the generated HTML request
 assets from `https://code-smithy.github.io/assets/...` instead of
 `https://code-smithy.github.io/questboard/assets/...`.
+
+## Permanent Branch-Source Fallback
+
+GitHub Pages should deploy the Actions artifact, but Questboard now keeps a
+second safety net for the recurring branch-source failure mode. If Pages serves
+the raw repository `index.html`, the bootstrap check detects the unbuilt
+`/src/main.tsx` module script and redirects the visitor to the committed
+`dist/` build instead of leaving them on the deployment-check screen.
+
+Keep this fallback current whenever a feature changes the runnable frontend.
+This command intentionally fails if `VITE_SUPABASE_URL` or
+`VITE_SUPABASE_ANON_KEY` are missing, because committing a fallback built
+without those values recreates the broken `/dist/#/login` page that says
+Discord login is not configured:
+
+```bash
+npm run build:pages-branch
+```
+
+Export the same Supabase values used by the GitHub Pages workflow before
+running it locally. Commit the resulting `dist/` changes with the feature. The
+script builds with `VITE_BASE_PATH=./` and disables the Vite public-directory
+copy for the fallback, so binary public assets such as `public/favicon.png` are
+not added to the checked-in `dist/` diff; it restores only `dist/.nojekyll`.
+The checked-in `dist/index.html` can still load its own JavaScript and CSS from
+`dist/assets/` when GitHub Pages is accidentally configured for branch source,
+and the bundle keeps the same Supabase login configuration as the normal
+Actions-built deployment. The normal GitHub Actions deployment still uses
+`npm run build` and serves the artifact at the repository root.
+
+Do not treat `/dist/` as the canonical production URL. It is only a resilience
+fallback for when GitHub Pages ignores the Actions artifact or is pointed at the
+repository branch again.
