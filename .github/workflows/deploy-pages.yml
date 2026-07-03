@@ -45,6 +45,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify Pages artifact
+        run: |
+          test -f dist/index.html
+          test -f dist/.nojekyll
+          ! grep -q '/src/main.tsx' dist/index.html
+          test -n "$(find dist/assets -maxdepth 1 -type f -name '*.js' -print -quit)"
+
       - name: Configure Pages
         uses: actions/configure-pages@v6
 
