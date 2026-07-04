@@ -25,6 +25,8 @@ The deploy workflow also verifies the live page after deployment and fails if Gi
 
 If the live page source contains `%BASE_URL%` or `/src/main.tsx`, GitHub Pages is serving raw repository source, not the Vite artifact. This is a Pages source/settings problem, not a Discord OAuth redirect problem.
 
+The deploy job retries `actions/deploy-pages` once after a short delay when GitHub creates a Pages deployment but reports a transient deployment failure such as `Deployment failed, try again later.` The retry does not weaken the later live-page verification; if GitHub Pages still serves raw source after deployment, the workflow remains failed.
+
 ## Deployment Cancellation
 
 The workflow uses a per-branch concurrency group and cancels in-progress runs for the same branch when a newer commit starts. If GitHub Pages logs `Error: Deployment cancelled` for an older run after another push, treat the newer run as the authoritative deployment and rerun only the latest workflow if it did not complete.
