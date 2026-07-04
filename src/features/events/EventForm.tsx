@@ -14,6 +14,7 @@ import {
   recurrenceWeekdays,
 } from './recurrence';
 import type { RecurrenceFrequency, RecurrenceOrdinal, RecurrenceWeekday } from './recurrence';
+import type { RecurrenceEndMode } from './recurrence';
 
 export type EventFormValues = Omit<EventFormInput, 'ownerId'>;
 
@@ -66,6 +67,9 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
   const [recurrenceWeekday, setRecurrenceWeekday] = useState<RecurrenceWeekday>(
     initialRecurrence.frequency === 'none' ? initialOrdinalWeekday.weekday : initialRecurrence.weekday,
   );
+  const [recurrenceEndMode, setRecurrenceEndMode] = useState<RecurrenceEndMode>(initialRecurrence.endMode);
+  const [recurrenceUntil, setRecurrenceUntil] = useState(initialRecurrence.until);
+  const [recurrenceCount, setRecurrenceCount] = useState(String(initialRecurrence.count));
   const [mode, setMode] = useState<EventMode>(initialValues?.mode ?? 'offline');
   const [locationText, setLocationText] = useState(initialValues?.locationText ?? '');
   const [onlinePlatform, setOnlinePlatform] = useState(initialValues?.onlinePlatform ?? '');
@@ -138,6 +142,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
     const parsedMaximum = maximumAttendees ? Number(maximumAttendees) : null;
     const parsedRecurrenceInterval = Number(recurrenceInterval);
     const parsedRecurrenceMonthDay = Number(recurrenceMonthDay);
+    const parsedRecurrenceCount = Number(recurrenceCount);
 
     if (!groupId) {
       setErrorMessage(t('form.chooseGuildError'));
@@ -177,6 +182,22 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
       setErrorMessage(t('form.recurrenceMonthDayError'));
       return;
     }
+    if (
+      recurrenceFrequency !== 'none'
+      && recurrenceEndMode === 'after-count'
+      && (!Number.isInteger(parsedRecurrenceCount) || parsedRecurrenceCount < 2)
+    ) {
+      setErrorMessage(t('form.recurrenceCountError'));
+      return;
+    }
+    if (
+      recurrenceFrequency !== 'none'
+      && recurrenceEndMode === 'on-date'
+      && (!recurrenceUntil || new Date(`${recurrenceUntil}T23:59:59`) < new Date(startAt))
+    ) {
+      setErrorMessage(t('form.recurrenceUntilError'));
+      return;
+    }
 
     setErrorMessage(null);
 
@@ -187,6 +208,9 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
       monthDay: parsedRecurrenceMonthDay || 1,
       ordinal: recurrenceOrdinal,
       weekday: recurrenceWeekday,
+      endMode: recurrenceEndMode,
+      until: recurrenceUntil,
+      count: parsedRecurrenceCount || 2,
     });
 
     await onSubmit({
@@ -319,6 +343,31 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
                 </select>
               </label>
             </div>
+          </>
+        )}
+        {recurrenceFrequency !== 'none' && (
+          <>
+            <label>
+              {t('form.recurrenceEnds')}
+              <select value={recurrenceEndMode} onChange={(event) => setRecurrenceEndMode(event.target.value as RecurrenceEndMode)}>
+                <option value="rolling">{t('recurrence.end.rolling')}</option>
+                <option value="on-date">{t('recurrence.end.onDate')}</option>
+                <option value="after-count">{t('recurrence.end.afterCount')}</option>
+              </select>
+            </label>
+            {recurrenceEndMode === 'on-date' && (
+              <label>
+                {t('form.recurrenceUntil')}
+                <input type="date" value={recurrenceUntil} onChange={(event) => setRecurrenceUntil(event.target.value)} />
+              </label>
+            )}
+            {recurrenceEndMode === 'after-count' && (
+              <label>
+                {t('form.recurrenceCount')}
+                <input type="number" min="2" max="100" step="1" value={recurrenceCount} onChange={(event) => setRecurrenceCount(event.target.value)} />
+              </label>
+            )}
+            {recurrenceEndMode === 'rolling' && <p className="hint">{t('form.recurrenceRollingHint')}</p>}
           </>
         )}
       </fieldset>

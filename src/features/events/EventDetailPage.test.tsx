@@ -62,6 +62,7 @@ const event = {
   visibility: 'private',
   status: 'open',
   recurrence_rule: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE',
+  recurrence_parent_id: null,
   archived_at: null,
   categories: { id: 'category-1', name: 'Board Games', color: '#f0b35a', icon: null },
   locations: {

@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import type { GroupLocation } from '../groups/groupApi';
+import { getRecurrenceOccurrenceStarts } from './recurrence';
 
 export type EventMode = 'online' | 'offline' | 'hybrid';
 export type EventStatus = 'draft' | 'open' | 'confirmed' | 'cancelled' | 'archived';
@@ -33,6 +34,7 @@ export type QuestEvent = {
   visibility: EventVisibility;
   status: EventStatus;
   recurrence_rule: string | null;
+  recurrence_parent_id: string | null;
   archived_at: string | null;
   categories: Pick<EventCategory, 'id' | 'name' | 'color' | 'icon'> | null;
   locations: Pick<GroupLocation, 'id' | 'name' | 'address' | 'latitude' | 'longitude' | 'map_url' | 'notes'> | null;
@@ -149,7 +151,16 @@ function optionalText(value: string) {
   return trimmed ? trimmed : null;
 }
 
-function toPayload(input: EventFormInput) {
+type EventPayloadOverrides = {
+  startAt?: string;
+  endAt?: string;
+  recurrenceRule?: string | null;
+  recurrenceParentId?: string | null;
+};
+
+function toPayload(input: EventFormInput, overrides: EventPayloadOverrides = {}) {
+  const recurrenceRule = Object.prototype.hasOwnProperty.call(overrides, 'recurrenceRule') ? overrides.recurrenceRule : input.recurrenceRule;
+
   return {
     group_id: input.groupId,
     category_id: input.categoryId,
@@ -157,8 +168,8 @@ function toPayload(input: EventFormInput) {
     owner_id: input.ownerId,
     title: input.title.trim(),
     description: optionalText(input.description),
-    start_at: input.startAt,
-    end_at: input.endAt,
+    start_at: overrides.startAt ?? input.startAt,
+    end_at: overrides.endAt ?? input.endAt,
     timezone: input.timezone.trim() || 'UTC',
     mode: input.mode,
     location_text: optionalText(input.locationText),
@@ -171,8 +182,26 @@ function toPayload(input: EventFormInput) {
     maximum_attendees: input.maximumAttendees,
     visibility: input.visibility,
     status: input.status,
-    recurrence_rule: input.recurrenceRule,
+    recurrence_rule: recurrenceRule,
+    recurrence_parent_id: overrides.recurrenceParentId ?? null,
   };
+}
+
+function getOccurrencePayloads(input: EventFormInput, parentId: string) {
+  if (!input.recurrenceRule) return [];
+
+  const durationMs = new Date(input.endAt).getTime() - new Date(input.startAt).getTime();
+  return getRecurrenceOccurrenceStarts(input.recurrenceRule, input.startAt)
+    .slice(1)
+    .map((startAt) => {
+      const endAt = new Date(startAt.getTime() + durationMs);
+      return toPayload(input, {
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        recurrenceRule: null,
+        recurrenceParentId: parentId,
+      });
+    });
 }
 
 export function getAttendanceSummary(input: {
@@ -226,6 +255,15 @@ export async function createEvent(input: EventFormInput) {
 
   if (error) throw error;
 
+  const occurrencePayloads = getOccurrencePayloads(input, data.id as string);
+  if (occurrencePayloads.length) {
+    const { error: occurrenceError } = await supabase
+      .from('events')
+      .insert(occurrencePayloads);
+
+    if (occurrenceError) throw occurrenceError;
+  }
+
   return { id: data.id as string };
 }
 
@@ -252,6 +290,7 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
         visibility,
         status,
         recurrence_rule,
+        recurrence_parent_id,
         archived_at,
         categories (
           id,

@@ -117,17 +117,32 @@ describe('eventApi', () => {
       minimum_attendees: 2,
       maximum_attendees: 5,
       recurrence_rule: null,
+      recurrence_parent_id: null,
     }));
   });
 
   it('creates events with a recurrence rule when provided', async () => {
     builders.events.single.mockResolvedValue({ data: { id: 'event-1' }, error: null });
 
-    await createEvent({ ...input, recurrenceRule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE' });
+    await createEvent({ ...input, recurrenceRule: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE;COUNT=3' });
 
     expect(builders.events.insert).toHaveBeenCalledWith(expect.objectContaining({
-      recurrence_rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE',
+      recurrence_rule: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE;COUNT=3',
     }));
+    expect(builders.events.insert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        start_at: '2026-07-13T18:00:00.000Z',
+        end_at: '2026-07-13T21:00:00.000Z',
+        recurrence_rule: null,
+        recurrence_parent_id: 'event-1',
+      }),
+      expect.objectContaining({
+        start_at: '2026-07-15T18:00:00.000Z',
+        end_at: '2026-07-15T21:00:00.000Z',
+        recurrence_rule: null,
+        recurrence_parent_id: 'event-1',
+      }),
+    ]);
   });
 
   it('updates and archives events', async () => {
@@ -247,6 +262,7 @@ describe('eventApi', () => {
       visibility: 'private',
       status: 'open',
       recurrence_rule: 'FREQ=MONTHLY;INTERVAL=1;BYDAY=2FR',
+      recurrence_parent_id: null,
       archived_at: null,
       categories: null,
       locations: { id: 'location-1', name: 'Game Room', address: '42 Tabletop Lane', latitude: null, longitude: null, map_url: null, notes: null },

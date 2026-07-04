@@ -28,6 +28,9 @@ describe('recurrence', () => {
       monthDay: 1,
       ordinal: '1',
       weekday: 'MO',
+      endMode: 'rolling',
+      until: '',
+      count: 12,
     })).toBe('FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE');
   });
 
@@ -39,6 +42,9 @@ describe('recurrence', () => {
       monthDay: 15,
       ordinal: '1',
       weekday: 'MO',
+      endMode: 'rolling',
+      until: '',
+      count: 12,
     })).toBe('FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=15');
 
     expect(buildRecurrenceRule({
@@ -48,7 +54,36 @@ describe('recurrence', () => {
       monthDay: 1,
       ordinal: '2',
       weekday: 'FR',
+      endMode: 'rolling',
+      until: '',
+      count: 12,
     })).toBe('FREQ=MONTHLY;INTERVAL=1;BYDAY=2FR');
+  });
+
+  it('builds recurrence rules with count and until limits', () => {
+    expect(buildRecurrenceRule({
+      frequency: 'weekly',
+      interval: 1,
+      weekdays: ['MO'],
+      monthDay: 1,
+      ordinal: '1',
+      weekday: 'MO',
+      endMode: 'after-count',
+      until: '',
+      count: 4,
+    })).toBe('FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;COUNT=4');
+
+    expect(buildRecurrenceRule({
+      frequency: 'monthly-date',
+      interval: 1,
+      weekdays: [],
+      monthDay: 10,
+      ordinal: '1',
+      weekday: 'MO',
+      endMode: 'on-date',
+      until: '2026-12-31',
+      count: 12,
+    })).toBe('FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=10;UNTIL=20261231T235959Z');
   });
 
   it('parses and formats recurrence summaries', () => {
