@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import type { CalendarEventMode } from '../calendar/calendarApi';
 import { useLanguage } from '../i18n/LanguageContext';
-import { listPublicEventCards } from './publicEventsApi';
+import { listPublicEventCards, requestPublicEventJoin } from './publicEventsApi';
 import type { PublicEventCard } from './publicEventsApi';
 
 type PublicBoardView = 'list' | 'month';
@@ -113,6 +113,7 @@ export function PublicEventsPage() {
   const [selectedView, setSelectedView] = useState<PublicBoardView>('list');
   const [focusedMonth, setFocusedMonth] = useState(() => getLocalMonthKey(new Date()));
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [requestingEventId, setRequestingEventId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -170,6 +171,24 @@ export function PublicEventsPage() {
   const showNextMonth = () => {
     const [year, month] = focusedMonth.split('-').map(Number);
     setFocusedMonth(getMonthKey(new Date(Date.UTC(year, month, 1)).toISOString()));
+  };
+
+  const handleRequestJoin = async (eventId: string) => {
+    if (!user) return;
+
+    setRequestingEventId(eventId);
+    setErrorMessage(null);
+
+    try {
+      await requestPublicEventJoin(eventId);
+      setEvents((currentEvents) => currentEvents.map((event) =>
+        event.id === eventId ? { ...event, current_user_request_status: 'pending' } : event,
+      ));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('public.requestError')));
+    } finally {
+      setRequestingEventId(null);
+    }
   };
 
   return (
@@ -325,6 +344,29 @@ export function PublicEventsPage() {
                           {t('public.online', { platform: event.online_details.platform ?? t('public.link') })}
                           {onlineUrl && <> - <a href={onlineUrl} target="_blank" rel="noreferrer">{t('public.openLink')}</a></>}
                         </span>
+                      )}
+                      {!event.viewer_is_group_member && (
+                        <div className="public-event-actions">
+                          {!user ? (
+                            <Link className="login-link" to="/login">{t('public.loginToRequest')}</Link>
+                          ) : event.current_user_request_status === 'pending' ? (
+                            <button type="button" className="secondary-button" disabled>{t('public.requestPending')}</button>
+                          ) : event.current_user_request_status === 'approved' ? (
+                            <button type="button" className="secondary-button" disabled>{t('public.requestApproved')}</button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={requestingEventId === event.id}
+                              onClick={() => void handleRequestJoin(event.id)}
+                            >
+                              {requestingEventId === event.id
+                                ? t('public.requesting')
+                                : event.current_user_request_status === 'rejected'
+                                  ? t('public.requestAgain')
+                                  : t('public.requestJoin')}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </article>
                   );

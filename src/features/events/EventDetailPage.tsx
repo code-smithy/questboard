@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { listUserGroups } from '../groups/groupApi';
+import { listUserGroups, reviewEventJoinRequest } from '../groups/groupApi';
 import type { GroupSummary } from '../groups/groupApi';
 import { formatAttendanceLabel, useLanguage } from '../i18n/LanguageContext';
 import { EventForm } from './EventForm';
@@ -153,6 +153,7 @@ export function EventDetailPage() {
   const [isSavingRsvp, setIsSavingRsvp] = useState(false);
   const [isSavingReminder, setIsSavingReminder] = useState(false);
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [reviewingJoinRequestId, setReviewingJoinRequestId] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -332,6 +333,22 @@ export function EventDetailPage() {
     }
   };
 
+  const handleReviewJoinRequest = async (requestId: string, status: 'approved' | 'rejected') => {
+    if (!eventId) return;
+
+    setReviewingJoinRequestId(requestId);
+    setErrorMessage(null);
+
+    try {
+      await reviewEventJoinRequest(requestId, status);
+      setEvent(await getEvent(eventId));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('groups.requestReviewError')));
+    } finally {
+      setReviewingJoinRequestId(null);
+    }
+  };
+
   const handleDownloadIcs = () => {
     if (!event) return;
 
@@ -361,6 +378,7 @@ export function EventDetailPage() {
     const attendees = event.event_rsvps.filter((rsvp) => rsvp.status === 'attending');
     const currentGroup = groups.find((group) => group.id === event.group_id);
     const canModerateComments = currentGroup?.role === 'group_admin';
+    const canReviewJoinRequests = event.owner_id === user.id || currentGroup?.role === 'group_admin';
     const locationMapHref = getLocationMapHref(event);
     const isRecurringEvent = Boolean(event.recurrence_rule || event.recurrence_parent_id);
 
@@ -424,6 +442,46 @@ export function EventDetailPage() {
             )) : <span>{t('event.noAttendees')}</span>}
           </div>
         </section>
+
+        {canReviewJoinRequests && (
+          <section className="join-request-panel" aria-labelledby="event-join-requests-heading">
+            <div>
+              <p className="eyebrow">{t('groups.joinRequests')}</p>
+              <h3 id="event-join-requests-heading">{t('groups.pendingJoinRequests', { count: event.event_join_requests.length })}</h3>
+            </div>
+            {event.event_join_requests.length ? (
+              <div className="join-request-list" role="list">
+                {event.event_join_requests.map((request) => (
+                  <article className="join-request-card" key={request.id}>
+                    <div>
+                      <strong>{request.profiles?.display_name ?? t('event.unknownMember')}</strong>
+                      <p className="hint">{t('groups.requestedAt', { date: new Date(request.created_at).toLocaleString(locale) })}</p>
+                    </div>
+                    <div className="button-row compact-actions">
+                      <button
+                        type="button"
+                        disabled={reviewingJoinRequestId === request.id}
+                        onClick={() => void handleReviewJoinRequest(request.id, 'approved')}
+                      >
+                        {reviewingJoinRequestId === request.id ? t('groups.reviewingRequest') : t('groups.approveRequest')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={reviewingJoinRequestId === request.id}
+                        onClick={() => void handleReviewJoinRequest(request.id, 'rejected')}
+                      >
+                        {t('groups.rejectRequest')}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="hint">{t('groups.noJoinRequests')}</p>
+            )}
+          </section>
+        )}
 
         <section className="reminder-panel" aria-labelledby="reminder-heading">
           <div>

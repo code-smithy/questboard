@@ -5,12 +5,14 @@ import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { PublicEventsPage } from './PublicEventsPage';
 
-const { listPublicEventCards } = vi.hoisted(() => ({
+const { listPublicEventCards, requestPublicEventJoin } = vi.hoisted(() => ({
   listPublicEventCards: vi.fn(),
+  requestPublicEventJoin: vi.fn(),
 }));
 
 vi.mock('./publicEventsApi', () => ({
   listPublicEventCards,
+  requestPublicEventJoin,
 }));
 
 const baseAuthState: AuthState = {
@@ -43,6 +45,8 @@ const publicEvents = [
     category_color: '#77ddaa',
     category_icon: null,
     attending_count: 2,
+    viewer_is_group_member: false,
+    current_user_request_status: null,
   },
   {
     id: 'event-2',
@@ -63,6 +67,8 @@ const publicEvents = [
     category_color: '#f0b35a',
     category_icon: null,
     attending_count: 4,
+    viewer_is_group_member: false,
+    current_user_request_status: null,
   },
 ];
 
@@ -83,7 +89,9 @@ function renderPublicEvents(authState: Partial<AuthState> = {}) {
 describe('PublicEventsPage', () => {
   beforeEach(() => {
     listPublicEventCards.mockReset();
+    requestPublicEventJoin.mockReset();
     listPublicEventCards.mockResolvedValue(publicEvents);
+    requestPublicEventJoin.mockResolvedValue('request-1');
   });
 
   it('renders public events without attendee identities or private detail links', async () => {
@@ -146,6 +154,18 @@ describe('PublicEventsPage', () => {
     expect(screen.queryByText('Open painting night')).not.toBeInTheDocument();
     expect(screen.getByText('Discord board games')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /open link/i })).toHaveAttribute('href', 'https://discord.example/events');
+  });
+
+  it('lets signed-in non-members request to join a public event', async () => {
+    renderPublicEvents({ user: { id: 'user-1', email: 'user@example.com' } as AuthState['user'] });
+
+    await screen.findByText('Open painting night');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Request to join' })[0]);
+
+    await waitFor(() => {
+      expect(requestPublicEventJoin).toHaveBeenCalledWith('event-1');
+    });
+    expect(screen.getByRole('button', { name: 'Request pending' })).toBeDisabled();
   });
 
   it('does not query Supabase when configuration is missing', async () => {

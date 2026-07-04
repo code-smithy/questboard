@@ -313,6 +313,7 @@ describe('eventApi', () => {
       event_comments: [],
       event_history: [],
       event_reminders: [],
+      event_join_requests: [],
     });
 
     expect(ics).toContain('BEGIN:VCALENDAR');

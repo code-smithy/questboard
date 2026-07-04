@@ -10,9 +10,11 @@ import {
   deactivateGroupInvite,
   listGroupInvites,
   listGroupLocations,
+  listPendingEventJoinRequests,
   listUserGroups,
+  reviewEventJoinRequest,
 } from './groupApi';
-import type { GroupInvite, GroupLocation, GroupSummary } from './groupApi';
+import type { EventJoinRequest, GroupInvite, GroupLocation, GroupSummary } from './groupApi';
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -37,13 +39,16 @@ export function GroupsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [invites, setInvites] = useState<GroupInvite[]>([]);
   const [locations, setLocations] = useState<GroupLocation[]>([]);
+  const [joinRequests, setJoinRequests] = useState<EventJoinRequest[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
   const [isLoadingInvites, setIsLoadingInvites] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [isCreatingLocation, setIsCreatingLocation] = useState(false);
   const [isArchivingGroup, setIsArchivingGroup] = useState(false);
+  const [reviewingJoinRequestId, setReviewingJoinRequestId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [theme, setTheme] = useState('');
@@ -103,6 +108,7 @@ export function GroupsPage() {
     const loadInvites = async () => {
       if (!selectedGroup || selectedGroup.role !== 'group_admin') {
         setInvites([]);
+        setJoinRequests([]);
         return;
       }
 
@@ -118,6 +124,27 @@ export function GroupsPage() {
     };
 
     void loadInvites();
+  }, [selectedGroup, t]);
+
+  useEffect(() => {
+    const loadJoinRequests = async () => {
+      if (!selectedGroup || selectedGroup.role !== 'group_admin') {
+        setJoinRequests([]);
+        return;
+      }
+
+      setIsLoadingJoinRequests(true);
+
+      try {
+        setJoinRequests(await listPendingEventJoinRequests(selectedGroup.id));
+      } catch (error) {
+        setErrorMessage(getErrorMessage(error, t('groups.requestLoadError')));
+      } finally {
+        setIsLoadingJoinRequests(false);
+      }
+    };
+
+    void loadJoinRequests();
   }, [selectedGroup, t]);
 
   useEffect(() => {
@@ -235,6 +262,22 @@ export function GroupsPage() {
       setStatusMessage(t('groups.inviteDisabled'));
     } catch (error) {
       setErrorMessage(getErrorMessage(error, t('groups.inviteDisableError')));
+    }
+  };
+
+  const handleReviewJoinRequest = async (requestId: string, status: 'approved' | 'rejected') => {
+    setReviewingJoinRequestId(requestId);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      await reviewEventJoinRequest(requestId, status);
+      setJoinRequests((currentRequests) => currentRequests.filter((request) => request.id !== requestId));
+      setStatusMessage(status === 'approved' ? t('groups.requestApproved') : t('groups.requestRejected'));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('groups.requestReviewError')));
+    } finally {
+      setReviewingJoinRequestId(null);
     }
   };
 
@@ -378,6 +421,56 @@ export function GroupsPage() {
           )}
         </div>
       </div>
+
+      {selectedGroup && (
+        <div className="invite-panel">
+          <div className="section-heading compact">
+            <div>
+              <p className="eyebrow">{t('groups.joinRequests')}</p>
+              <h3>{t('groups.pendingJoinRequests', { count: joinRequests.length })}</h3>
+            </div>
+            {!canManageInvites && <p className="hint">{t('groups.adminOnly')}</p>}
+          </div>
+
+          {canManageInvites && (
+            isLoadingJoinRequests ? (
+              <p className="hint">{t('groups.loadingJoinRequests')}</p>
+            ) : joinRequests.length ? (
+              <div className="join-request-list" role="list">
+                {joinRequests.map((request) => (
+                  <article className="join-request-card" key={request.id}>
+                    <div>
+                      <strong>{request.profiles?.display_name ?? t('event.unknownMember')}</strong>
+                      <p className="hint">
+                        {request.events?.title ?? t('event.notFound')} - {t('groups.requestedAt', { date: new Date(request.created_at).toLocaleString(locale) })}
+                      </p>
+                    </div>
+                    <div className="button-row compact-actions">
+                      <button
+                        type="button"
+                        disabled={reviewingJoinRequestId === request.id}
+                        onClick={() => void handleReviewJoinRequest(request.id, 'approved')}
+                      >
+                        {reviewingJoinRequestId === request.id ? t('groups.reviewingRequest') : t('groups.approveRequest')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={reviewingJoinRequestId === request.id}
+                        onClick={() => void handleReviewJoinRequest(request.id, 'rejected')}
+                      >
+                        {t('groups.rejectRequest')}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="hint">{t('groups.noJoinRequests')}</p>
+            )
+          )}
+        </div>
+      )}
 
       {selectedGroup && (
         <div className="invite-panel">

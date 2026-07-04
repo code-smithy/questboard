@@ -42,6 +42,7 @@ export type QuestEvent = {
   event_comments: EventComment[];
   event_history: EventHistoryEntry[];
   event_reminders: EventReminder[];
+  event_join_requests: EventJoinRequest[];
 };
 
 export type EventRsvp = {
@@ -99,6 +100,19 @@ export type EventReminder = {
   method: 'in_app' | 'browser';
   is_sent: boolean;
   created_at: string;
+};
+
+export type EventJoinRequest = {
+  id: string;
+  event_id: string;
+  requester_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  reviewed_at: string | null;
+  profiles: {
+    display_name: string;
+    avatar_url: string | null;
+  } | null;
 };
 
 export type DueReminder = EventReminder & {
@@ -380,6 +394,18 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
           method,
           is_sent,
           created_at
+        ),
+        event_join_requests (
+          id,
+          event_id,
+          requester_id,
+          status,
+          created_at,
+          reviewed_at,
+          profiles (
+            display_name,
+            avatar_url
+          )
         )
       `,
     )
@@ -388,13 +414,14 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
 
   if (error) throw error;
 
-  const row = data as unknown as Omit<QuestEvent, 'categories' | 'locations' | 'event_rsvps' | 'event_comments' | 'event_history' | 'event_reminders'> & {
+  const row = data as unknown as Omit<QuestEvent, 'categories' | 'locations' | 'event_rsvps' | 'event_comments' | 'event_history' | 'event_reminders' | 'event_join_requests'> & {
     categories: QuestEvent['categories'] | QuestEvent['categories'][];
     locations: QuestEvent['locations'] | QuestEvent['locations'][];
     event_rsvps: EventRsvp[] | null;
     event_comments: EventComment[] | null;
     event_history: EventHistoryEntry[] | null;
     event_reminders: EventReminder[] | null;
+    event_join_requests: EventJoinRequest[] | null;
   };
 
   return {
@@ -408,6 +435,9 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
     event_history: (row.event_history ?? [])
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     event_reminders: row.event_reminders ?? [],
+    event_join_requests: (row.event_join_requests ?? [])
+      .filter((request) => request.status === 'pending')
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
   };
 }
 

@@ -5,7 +5,7 @@ import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { EventDetailPage } from './EventDetailPage';
 
-const { addEventComment, archiveEvent, archiveEventComment, archiveEventSeries, getEvent, listUserGroups, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } = vi.hoisted(() => ({
+const { addEventComment, archiveEvent, archiveEventComment, archiveEventSeries, getEvent, listUserGroups, recordEventHistory, replaceInAppReminder, reviewEventJoinRequest, setEventRsvp, updateEvent } = vi.hoisted(() => ({
   addEventComment: vi.fn(),
   archiveEvent: vi.fn(),
   archiveEventComment: vi.fn(),
@@ -14,12 +14,14 @@ const { addEventComment, archiveEvent, archiveEventComment, archiveEventSeries, 
   listUserGroups: vi.fn(),
   recordEventHistory: vi.fn(),
   replaceInAppReminder: vi.fn(),
+  reviewEventJoinRequest: vi.fn(),
   setEventRsvp: vi.fn(),
   updateEvent: vi.fn(),
 }));
 
 vi.mock('../groups/groupApi', () => ({
   listUserGroups,
+  reviewEventJoinRequest,
 }));
 
 vi.mock('./eventApi', async (importOriginal) => ({
@@ -127,6 +129,7 @@ const event = {
       created_at: '2026-07-05T12:00:00Z',
     },
   ],
+  event_join_requests: [],
 };
 
 function renderEventDetail() {
@@ -152,6 +155,7 @@ describe('EventDetailPage', () => {
     listUserGroups.mockReset();
     recordEventHistory.mockReset();
     replaceInAppReminder.mockReset();
+    reviewEventJoinRequest.mockReset();
     setEventRsvp.mockReset();
     updateEvent.mockReset();
     listUserGroups.mockResolvedValue([{ id: 'group-1', name: 'Friday Guild', role: 'regular' }]);
@@ -162,6 +166,7 @@ describe('EventDetailPage', () => {
     archiveEventSeries.mockResolvedValue(undefined);
     recordEventHistory.mockResolvedValue(undefined);
     replaceInAppReminder.mockResolvedValue(undefined);
+    reviewEventJoinRequest.mockResolvedValue('event-1');
     setEventRsvp.mockResolvedValue(undefined);
   });
 
@@ -237,6 +242,34 @@ describe('EventDetailPage', () => {
 
     await waitFor(() => {
       expect(replaceInAppReminder).toHaveBeenCalledWith('event-1', 'user-1', '2026-07-10T18:00:00Z', 15);
+    });
+    expect(getEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets the event owner admit pending public join requests', async () => {
+    getEvent.mockResolvedValue({
+      ...event,
+      owner_id: 'user-1',
+      event_join_requests: [
+        {
+          id: 'request-1',
+          event_id: 'event-1',
+          requester_id: 'user-3',
+          status: 'pending',
+          created_at: '2026-07-06T10:00:00Z',
+          reviewed_at: null,
+          profiles: { display_name: 'New Adventurer', avatar_url: null },
+        },
+      ],
+    });
+
+    renderEventDetail();
+
+    expect(await screen.findByText('New Adventurer')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Admit' }));
+
+    await waitFor(() => {
+      expect(reviewEventJoinRequest).toHaveBeenCalledWith('request-1', 'approved');
     });
     expect(getEvent).toHaveBeenCalledTimes(2);
   });

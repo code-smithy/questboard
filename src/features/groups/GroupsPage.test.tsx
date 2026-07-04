@@ -15,7 +15,9 @@ const {
   deactivateGroupInvite,
   listGroupInvites,
   listGroupLocations,
+  listPendingEventJoinRequests,
   listUserGroups,
+  reviewEventJoinRequest,
 } = vi.hoisted(() => ({
   archiveGroup: vi.fn(),
   archiveGroupLocation: vi.fn(),
@@ -25,7 +27,9 @@ const {
   deactivateGroupInvite: vi.fn(),
   listGroupInvites: vi.fn(),
   listGroupLocations: vi.fn(),
+  listPendingEventJoinRequests: vi.fn(),
   listUserGroups: vi.fn(),
+  reviewEventJoinRequest: vi.fn(),
 }));
 
 vi.mock('./groupApi', () => ({
@@ -37,7 +41,9 @@ vi.mock('./groupApi', () => ({
   deactivateGroupInvite,
   listGroupInvites,
   listGroupLocations,
+  listPendingEventJoinRequests,
   listUserGroups,
+  reviewEventJoinRequest,
 }));
 
 const baseAuthState: AuthState = {
@@ -85,6 +91,26 @@ const location = {
   archived_at: null,
 };
 
+const joinRequest = {
+  id: 'request-1',
+  event_id: 'event-1',
+  requester_id: 'user-2',
+  status: 'pending',
+  created_at: '2026-07-04T12:00:00.000Z',
+  reviewed_at: null,
+  events: {
+    id: 'event-1',
+    title: 'Open painting night',
+    start_at: '2026-07-10T18:00:00.000Z',
+    timezone: 'UTC',
+    group_id: 'group-1',
+  },
+  profiles: {
+    display_name: 'New Adventurer',
+    avatar_url: null,
+  },
+};
+
 function renderGroups(authState: Partial<AuthState> = {}) {
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
@@ -105,17 +131,21 @@ describe('GroupsPage', () => {
     deactivateGroupInvite.mockReset();
     listGroupInvites.mockReset();
     listGroupLocations.mockReset();
+    listPendingEventJoinRequests.mockReset();
     listUserGroups.mockReset();
+    reviewEventJoinRequest.mockReset();
 
     archiveGroup.mockResolvedValue(undefined);
     listUserGroups.mockResolvedValue([adminGroup]);
     listGroupInvites.mockResolvedValue([invite]);
     listGroupLocations.mockResolvedValue([location]);
+    listPendingEventJoinRequests.mockResolvedValue([joinRequest]);
     createGroup.mockResolvedValue({ id: 'group-2' });
     createGroupInvite.mockResolvedValue({ ...invite, id: 'invite-2', token: 'new-token' });
     createGroupLocation.mockResolvedValue({ ...location, id: 'location-2', name: 'Community Hall' });
     archiveGroupLocation.mockResolvedValue(undefined);
     deactivateGroupInvite.mockResolvedValue(undefined);
+    reviewEventJoinRequest.mockResolvedValue('event-1');
   });
 
   afterEach(() => {
@@ -131,6 +161,21 @@ describe('GroupsPage', () => {
     expect(listUserGroups).toHaveBeenCalledWith('user-1');
     expect(listGroupInvites).toHaveBeenCalledWith('group-1');
     expect(listGroupLocations).toHaveBeenCalledWith('group-1');
+    expect(listPendingEventJoinRequests).toHaveBeenCalledWith('group-1');
+  });
+
+  it('shows pending public event join requests and admits them', async () => {
+    renderGroups();
+
+    expect(await screen.findByText('New Adventurer')).toBeInTheDocument();
+    expect(screen.getByText(/Open painting night/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Admit' }));
+
+    await waitFor(() => {
+      expect(reviewEventJoinRequest).toHaveBeenCalledWith('request-1', 'approved');
+    });
+    expect(await screen.findByText('Join request admitted.')).toBeInTheDocument();
+    expect(screen.queryByText('New Adventurer')).not.toBeInTheDocument();
   });
 
   it('creates a group for the current user', async () => {

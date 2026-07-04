@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, listGroupLocations } from './groupApi';
+import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, listGroupLocations, listPendingEventJoinRequests, reviewEventJoinRequest } from './groupApi';
 
 const { builders, from, rpc } = vi.hoisted(() => {
   const builders = {
@@ -12,11 +12,16 @@ const { builders, from, rpc } = vi.hoisted(() => {
       single: vi.fn(),
       update: vi.fn(() => builders.locations),
     },
+    event_join_requests: {
+      select: vi.fn(() => builders.event_join_requests),
+      eq: vi.fn(() => builders.event_join_requests),
+      order: vi.fn(),
+    },
   };
 
   return {
     builders,
-    from: vi.fn((table: 'locations') => builders[table]),
+    from: vi.fn((table: 'locations' | 'event_join_requests') => builders[table]),
     rpc: vi.fn(),
   };
 });
@@ -31,7 +36,9 @@ describe('groupApi', () => {
     from.mockClear();
     rpc.mockReset();
     Object.values(builders.locations).forEach((fn) => fn.mockClear?.());
+    Object.values(builders.event_join_requests).forEach((fn) => fn.mockClear?.());
     builders.locations.eq.mockImplementation(() => builders.locations);
+    builders.event_join_requests.eq.mockImplementation(() => builders.event_join_requests);
   });
 
   it('creates groups through the RLS-safe database function', async () => {
@@ -117,5 +124,31 @@ describe('groupApi', () => {
     });
     expect(builders.locations.update).toHaveBeenCalledWith({ archived_at: '2026-07-04T13:00:00.000Z' });
     expect(builders.locations.eq).toHaveBeenCalledWith('id', 'location-1');
+  });
+
+  it('lists pending event join requests for a guild', async () => {
+    builders.event_join_requests.order.mockResolvedValue({
+      data: [{ id: 'request-1', event_id: 'event-1', status: 'pending' }],
+      error: null,
+    });
+
+    await expect(listPendingEventJoinRequests('group-1')).resolves.toEqual([{ id: 'request-1', event_id: 'event-1', status: 'pending' }]);
+
+    expect(from).toHaveBeenCalledWith('event_join_requests');
+    expect(builders.event_join_requests.select).toHaveBeenCalledWith(expect.stringContaining('events!inner'));
+    expect(builders.event_join_requests.eq).toHaveBeenCalledWith('status', 'pending');
+    expect(builders.event_join_requests.eq).toHaveBeenCalledWith('events.group_id', 'group-1');
+    expect(builders.event_join_requests.order).toHaveBeenCalledWith('created_at', { ascending: true });
+  });
+
+  it('reviews event join requests through the database function', async () => {
+    rpc.mockResolvedValue({ data: 'event-1', error: null });
+
+    await expect(reviewEventJoinRequest('request-1', 'approved')).resolves.toBe('event-1');
+
+    expect(rpc).toHaveBeenCalledWith('review_event_join_request', {
+      request_id: 'request-1',
+      next_status: 'approved',
+    });
   });
 });

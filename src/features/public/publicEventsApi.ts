@@ -20,6 +20,8 @@ export type PublicEventCard = {
   category_color: string | null;
   category_icon: string | null;
   attending_count: number;
+  viewer_is_group_member: boolean;
+  current_user_request_status: 'pending' | 'approved' | 'rejected' | null;
 };
 
 export async function listPublicEventCards(): Promise<PublicEventCard[]> {
@@ -44,7 +46,9 @@ export async function listPublicEventCards(): Promise<PublicEventCard[]> {
         category_name,
         category_color,
         category_icon,
-        attending_count
+        attending_count,
+        viewer_is_group_member,
+        current_user_request_status
       `,
     )
     .order('start_at', { ascending: true });
@@ -52,4 +56,12 @@ export async function listPublicEventCards(): Promise<PublicEventCard[]> {
   if (error) throw error;
 
   return (data ?? []) as PublicEventCard[];
+}
+
+export async function requestPublicEventJoin(eventId: string) {
+  const { data, error } = await supabase.rpc('request_public_event_join', { target_event_id: eventId });
+
+  if (error) throw error;
+
+  return data as string;
 }

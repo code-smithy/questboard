@@ -37,6 +37,28 @@ export type GroupLocation = {
   archived_at: string | null;
 };
 
+export type EventJoinRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export type EventJoinRequest = {
+  id: string;
+  event_id: string;
+  requester_id: string;
+  status: EventJoinRequestStatus;
+  created_at: string;
+  reviewed_at: string | null;
+  events: {
+    id: string;
+    title: string;
+    start_at: string;
+    timezone: string;
+    group_id: string;
+  } | null;
+  profiles: {
+    display_name: string;
+    avatar_url: string | null;
+  } | null;
+};
+
 type GroupMembershipRow = {
   role: GroupRole;
   joined_at: string;
@@ -227,4 +249,48 @@ export async function archiveGroupLocation(locationId: string) {
     .eq('id', locationId);
 
   if (error) throw error;
+}
+
+export async function listPendingEventJoinRequests(groupId: string): Promise<EventJoinRequest[]> {
+  const { data, error } = await supabase
+    .from('event_join_requests')
+    .select(
+      `
+        id,
+        event_id,
+        requester_id,
+        status,
+        created_at,
+        reviewed_at,
+        events!inner (
+          id,
+          title,
+          start_at,
+          timezone,
+          group_id
+        ),
+        profiles (
+          display_name,
+          avatar_url
+        )
+      `,
+    )
+    .eq('status', 'pending')
+    .eq('events.group_id', groupId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []) as unknown as EventJoinRequest[];
+}
+
+export async function reviewEventJoinRequest(requestId: string, status: Extract<EventJoinRequestStatus, 'approved' | 'rejected'>) {
+  const { data, error } = await supabase.rpc('review_event_join_request', {
+    request_id: requestId,
+    next_status: status,
+  });
+
+  if (error) throw error;
+
+  return data as string;
 }
