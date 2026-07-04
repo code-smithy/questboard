@@ -32,6 +32,7 @@ export type QuestEvent = {
   maximum_attendees: number | null;
   visibility: EventVisibility;
   status: EventStatus;
+  recurrence_rule: string | null;
   archived_at: string | null;
   categories: Pick<EventCategory, 'id' | 'name' | 'color' | 'icon'> | null;
   locations: Pick<GroupLocation, 'id' | 'name' | 'address' | 'latitude' | 'longitude' | 'map_url' | 'notes'> | null;
@@ -140,6 +141,7 @@ export type EventFormInput = {
   maximumAttendees: number | null;
   visibility: EventVisibility;
   status: Exclude<EventStatus, 'archived'>;
+  recurrenceRule: string | null;
 };
 
 function optionalText(value: string) {
@@ -169,6 +171,7 @@ function toPayload(input: EventFormInput) {
     maximum_attendees: input.maximumAttendees,
     visibility: input.visibility,
     status: input.status,
+    recurrence_rule: input.recurrenceRule,
   };
 }
 
@@ -248,6 +251,7 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
         maximum_attendees,
         visibility,
         status,
+        recurrence_rule,
         archived_at,
         categories (
           id,
@@ -509,6 +513,7 @@ export function buildEventIcs(event: QuestEvent, productId = '-//Questboard//Eve
   if (location) lines.push(`LOCATION:${escapeIcsText(location)}`);
 
   if (event.online_details.url) lines.push(`URL:${event.online_details.url}`);
+  if (event.recurrence_rule) lines.push(`RRULE:${event.recurrence_rule}`);
 
   lines.push('END:VEVENT', 'END:VCALENDAR');
 

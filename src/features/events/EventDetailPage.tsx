@@ -8,6 +8,7 @@ import { EventForm } from './EventForm';
 import type { EventFormValues } from './EventForm';
 import { addEventComment, archiveEvent, archiveEventComment, buildEventIcs, getAttendanceSummary, getEvent, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } from './eventApi';
 import type { EventRsvpStatus, QuestEvent } from './eventApi';
+import { formatRecurrenceRule } from './recurrence';
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -36,6 +37,7 @@ function toFormValues(event: QuestEvent): EventFormValues {
     maximumAttendees: event.maximum_attendees,
     visibility: event.visibility,
     status: event.status === 'archived' ? 'open' : event.status,
+    recurrenceRule: event.recurrence_rule,
   };
 }
 
@@ -73,6 +75,7 @@ function toHistoryValues(values: EventFormValues) {
     maximum_attendees: values.maximumAttendees,
     visibility: values.visibility,
     status: values.status,
+    recurrence_rule: values.recurrenceRule,
   };
 }
 
@@ -93,6 +96,7 @@ function toEventHistoryValues(event: QuestEvent) {
     maximum_attendees: event.maximum_attendees,
     visibility: event.visibility,
     status: event.status,
+    recurrence_rule: event.recurrence_rule,
   };
 }
 
@@ -343,6 +347,7 @@ export function EventDetailPage() {
         <h2>{event.title}</h2>
         <dl className="details-list">
           <div><dt>{t('event.when')}</dt><dd>{formatDate(event.start_at, event.timezone, locale)} - {formatDate(event.end_at, event.timezone, locale)}</dd></div>
+          {event.recurrence_rule && <div><dt>{t('event.recurrence')}</dt><dd>{formatRecurrenceRule(t, event.recurrence_rule)}</dd></div>}
           <div><dt>{t('event.category')}</dt><dd>{event.categories?.name ?? t('event.uncategorized')}</dd></div>
           <div><dt>{t('event.mode')}</dt><dd>{t(`mode.${event.mode}`)}</dd></div>
           <div><dt>{t('event.status')}</dt><dd>{t(`status.${event.status}`)}</dd></div>

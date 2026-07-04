@@ -4,6 +4,16 @@ import type { GroupLocation, GroupSummary } from '../groups/groupApi';
 import { useLanguage } from '../i18n/LanguageContext';
 import { listGroupCategories } from './eventApi';
 import type { EventCategory, EventFormInput, EventMode, EventStatus, EventVisibility } from './eventApi';
+import {
+  buildRecurrenceRule,
+  getMonthDay,
+  getOrdinalWeekday,
+  getWeekdayCode,
+  parseRecurrenceRule,
+  recurrenceOrdinalOptions,
+  recurrenceWeekdays,
+} from './recurrence';
+import type { RecurrenceFrequency, RecurrenceOrdinal, RecurrenceWeekday } from './recurrence';
 
 export type EventFormValues = Omit<EventFormInput, 'ownerId'>;
 
@@ -31,6 +41,9 @@ function toLocalInputValue(value?: string) {
 
 export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel }: EventFormProps) {
   const { t } = useLanguage();
+  const initialStartAt = toLocalInputValue(initialValues?.startAt) || defaultStart;
+  const initialRecurrence = parseRecurrenceRule(initialValues?.recurrenceRule);
+  const initialOrdinalWeekday = getOrdinalWeekday(initialStartAt);
   const [groupId, setGroupId] = useState(initialValues?.groupId ?? groups[0]?.id ?? '');
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [locations, setLocations] = useState<GroupLocation[]>([]);
@@ -38,9 +51,21 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
   const [locationId, setLocationId] = useState(initialValues?.locationId ?? '');
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [description, setDescription] = useState(initialValues?.description ?? '');
-  const [startAt, setStartAt] = useState(toLocalInputValue(initialValues?.startAt) || defaultStart);
+  const [startAt, setStartAt] = useState(initialStartAt);
   const [endAt, setEndAt] = useState(toLocalInputValue(initialValues?.endAt) || defaultEnd);
   const [timezone, setTimezone] = useState(initialValues?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC');
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>(initialRecurrence.frequency);
+  const [recurrenceInterval, setRecurrenceInterval] = useState(String(initialRecurrence.interval));
+  const [recurrenceWeekdaySelections, setRecurrenceWeekdaySelections] = useState<RecurrenceWeekday[]>(
+    initialRecurrence.weekdays.length ? initialRecurrence.weekdays : [getWeekdayCode(initialStartAt)],
+  );
+  const [recurrenceMonthDay, setRecurrenceMonthDay] = useState(String(initialRecurrence.monthDay || getMonthDay(initialStartAt)));
+  const [recurrenceOrdinal, setRecurrenceOrdinal] = useState<RecurrenceOrdinal>(
+    initialRecurrence.ordinal === '1' && initialRecurrence.frequency === 'none' ? initialOrdinalWeekday.ordinal : initialRecurrence.ordinal,
+  );
+  const [recurrenceWeekday, setRecurrenceWeekday] = useState<RecurrenceWeekday>(
+    initialRecurrence.frequency === 'none' ? initialOrdinalWeekday.weekday : initialRecurrence.weekday,
+  );
   const [mode, setMode] = useState<EventMode>(initialValues?.mode ?? 'offline');
   const [locationText, setLocationText] = useState(initialValues?.locationText ?? '');
   const [onlinePlatform, setOnlinePlatform] = useState(initialValues?.onlinePlatform ?? '');
@@ -82,11 +107,37 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
     void loadGroupOptions();
   }, [groupId, t]);
 
+  const handleRecurrenceFrequencyChange = (nextFrequency: RecurrenceFrequency) => {
+    setRecurrenceFrequency(nextFrequency);
+
+    if (nextFrequency === 'weekly' && recurrenceWeekdaySelections.length === 0) {
+      setRecurrenceWeekdaySelections([getWeekdayCode(startAt)]);
+    }
+    if (nextFrequency === 'monthly-date' && !recurrenceMonthDay) {
+      setRecurrenceMonthDay(String(getMonthDay(startAt)));
+    }
+    if (nextFrequency === 'monthly-weekday') {
+      const ordinalWeekday = getOrdinalWeekday(startAt);
+      setRecurrenceOrdinal((currentOrdinal) => currentOrdinal || ordinalWeekday.ordinal);
+      setRecurrenceWeekday((currentWeekday) => currentWeekday || ordinalWeekday.weekday);
+    }
+  };
+
+  const handleRecurrenceWeekdayChange = (weekday: RecurrenceWeekday, isChecked: boolean) => {
+    setRecurrenceWeekdaySelections((currentWeekdays) => (
+      isChecked
+        ? Array.from(new Set([...currentWeekdays, weekday]))
+        : currentWeekdays.filter((currentWeekday) => currentWeekday !== weekday)
+    ));
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const parsedMinimum = Number(minimumAttendees);
     const parsedMaximum = maximumAttendees ? Number(maximumAttendees) : null;
+    const parsedRecurrenceInterval = Number(recurrenceInterval);
+    const parsedRecurrenceMonthDay = Number(recurrenceMonthDay);
 
     if (!groupId) {
       setErrorMessage(t('form.chooseGuildError'));
@@ -108,8 +159,35 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
       setErrorMessage(t('form.endError'));
       return;
     }
+    if (
+      recurrenceFrequency !== 'none'
+      && (!Number.isInteger(parsedRecurrenceInterval) || parsedRecurrenceInterval < 1)
+    ) {
+      setErrorMessage(t('form.recurrenceError'));
+      return;
+    }
+    if (recurrenceFrequency === 'weekly' && recurrenceWeekdaySelections.length === 0) {
+      setErrorMessage(t('form.recurrenceWeekdayError'));
+      return;
+    }
+    if (
+      recurrenceFrequency === 'monthly-date'
+      && (!Number.isInteger(parsedRecurrenceMonthDay) || parsedRecurrenceMonthDay < 1 || parsedRecurrenceMonthDay > 31)
+    ) {
+      setErrorMessage(t('form.recurrenceMonthDayError'));
+      return;
+    }
 
     setErrorMessage(null);
+
+    const recurrenceRule = buildRecurrenceRule({
+      frequency: recurrenceFrequency,
+      interval: parsedRecurrenceInterval || 1,
+      weekdays: recurrenceWeekdaySelections,
+      monthDay: parsedRecurrenceMonthDay || 1,
+      ordinal: recurrenceOrdinal,
+      weekday: recurrenceWeekday,
+    });
 
     await onSubmit({
       groupId,
@@ -129,6 +207,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
       maximumAttendees: parsedMaximum,
       visibility,
       status,
+      recurrenceRule,
     });
   };
 
@@ -170,6 +249,79 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
         {t('form.timezone')}
         <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
       </label>
+      <fieldset className="recurrence-fieldset">
+        <legend>{t('form.recurrence')}</legend>
+        <label>
+          {t('form.recurrencePattern')}
+          <select value={recurrenceFrequency} onChange={(event) => handleRecurrenceFrequencyChange(event.target.value as RecurrenceFrequency)}>
+            <option value="none">{t('recurrence.none')}</option>
+            <option value="weekly">{t('recurrence.weekly')}</option>
+            <option value="monthly-date">{t('recurrence.monthlyDate')}</option>
+            <option value="monthly-weekday">{t('recurrence.monthlyWeekday')}</option>
+          </select>
+        </label>
+        {recurrenceFrequency === 'weekly' && (
+          <>
+            <label>
+              {t('form.recurrenceIntervalWeeks')}
+              <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
+            </label>
+            <fieldset className="checkbox-fieldset">
+              <legend>{t('form.recurrenceWeekdays')}</legend>
+              <div className="weekday-grid">
+                {recurrenceWeekdays.map((weekday) => (
+                  <label key={weekday}>
+                    <input
+                      type="checkbox"
+                      checked={recurrenceWeekdaySelections.includes(weekday)}
+                      onChange={(event) => handleRecurrenceWeekdayChange(weekday, event.target.checked)}
+                    />
+                    <span>{t(`weekday.${weekday}`)}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </>
+        )}
+        {recurrenceFrequency === 'monthly-date' && (
+          <div className="inline-form two-up">
+            <label>
+              {t('form.recurrenceIntervalMonths')}
+              <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
+            </label>
+            <label>
+              {t('form.recurrenceMonthDay')}
+              <input type="number" min="1" max="31" step="1" value={recurrenceMonthDay} onChange={(event) => setRecurrenceMonthDay(event.target.value)} />
+            </label>
+          </div>
+        )}
+        {recurrenceFrequency === 'monthly-weekday' && (
+          <>
+            <label>
+              {t('form.recurrenceIntervalMonths')}
+              <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
+            </label>
+            <div className="inline-form two-up">
+              <label>
+                {t('form.recurrenceOrdinal')}
+                <select value={recurrenceOrdinal} onChange={(event) => setRecurrenceOrdinal(event.target.value as RecurrenceOrdinal)}>
+                  {recurrenceOrdinalOptions.map((ordinal) => (
+                    <option key={ordinal} value={ordinal}>{t(`ordinal.${ordinal}`)}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t('form.recurrenceWeekday')}
+                <select value={recurrenceWeekday} onChange={(event) => setRecurrenceWeekday(event.target.value as RecurrenceWeekday)}>
+                  {recurrenceWeekdays.map((weekday) => (
+                    <option key={weekday} value={weekday}>{t(`weekday.${weekday}`)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </>
+        )}
+      </fieldset>
       <div className="inline-form three-up">
         <label>
           {t('form.mode')}

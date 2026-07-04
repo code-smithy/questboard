@@ -81,6 +81,7 @@ const input = {
   maximumAttendees: 5,
   visibility: 'private' as const,
   status: 'open' as const,
+  recurrenceRule: null,
 };
 
 describe('eventApi', () => {
@@ -115,6 +116,17 @@ describe('eventApi', () => {
       online_details: { platform: null, url: null, instructions: null },
       minimum_attendees: 2,
       maximum_attendees: 5,
+      recurrence_rule: null,
+    }));
+  });
+
+  it('creates events with a recurrence rule when provided', async () => {
+    builders.events.single.mockResolvedValue({ data: { id: 'event-1' }, error: null });
+
+    await createEvent({ ...input, recurrenceRule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE' });
+
+    expect(builders.events.insert).toHaveBeenCalledWith(expect.objectContaining({
+      recurrence_rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE',
     }));
   });
 
@@ -234,6 +246,7 @@ describe('eventApi', () => {
       maximum_attendees: 5,
       visibility: 'private',
       status: 'open',
+      recurrence_rule: 'FREQ=MONTHLY;INTERVAL=1;BYDAY=2FR',
       archived_at: null,
       categories: null,
       locations: { id: 'location-1', name: 'Game Room', address: '42 Tabletop Lane', latitude: null, longitude: null, map_url: null, notes: null },
@@ -248,6 +261,7 @@ describe('eventApi', () => {
     expect(ics).toContain('DESCRIPTION:Bring snacks\\, sleeves\\; and dice.');
     expect(ics).toContain('LOCATION:Game Room\\, 42 Tabletop Lane\\, Back room');
     expect(ics).toContain('DTSTART:20260710T180000Z');
+    expect(ics).toContain('RRULE:FREQ=MONTHLY;INTERVAL=1;BYDAY=2FR');
   });
 
   it('summarizes RSVP counts and attendance thresholds', () => {

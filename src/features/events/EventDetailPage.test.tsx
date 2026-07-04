@@ -61,6 +61,7 @@ const event = {
   maximum_attendees: 4,
   visibility: 'private',
   status: 'open',
+  recurrence_rule: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE',
   archived_at: null,
   categories: { id: 'category-1', name: 'Board Games', color: '#f0b35a', icon: null },
   locations: {
@@ -163,6 +164,7 @@ describe('EventDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Board game night' })).toBeInTheDocument();
     expect(screen.getByText('1/4 seats - Needs 1 more')).toBeInTheDocument();
+    expect(screen.getByText('Every 1 week(s) on Monday, Wednesday')).toBeInTheDocument();
     expect(screen.getByText('1 attending, 1 maybe, 0 declined.')).toBeInTheDocument();
     expect(within(screen.getByLabelText('Attending members')).getByText('Quest Keeper')).toBeInTheDocument();
     expect(screen.getByText('I can bring snacks.')).toBeInTheDocument();

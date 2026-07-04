@@ -4,7 +4,10 @@ import { getCalendarReadModel } from './calendarApi';
 const { listUserGroups, order, queryBuilder } = vi.hoisted(() => {
   const order = vi.fn();
   const queryBuilder = {
-    select: vi.fn(() => queryBuilder),
+    select: vi.fn((columns: string) => {
+      void columns;
+      return queryBuilder;
+    }),
     in: vi.fn(() => queryBuilder),
     is: vi.fn(() => queryBuilder),
     neq: vi.fn(() => queryBuilder),
