@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { GroupsPage } from './GroupsPage';
-import type { GroupInvite, GroupSummary } from './groupApi';
+import type { GroupInvite, GroupMember, GroupSummary } from './groupApi';
 
 const {
   archiveGroup,
@@ -15,8 +15,11 @@ const {
   deactivateGroupInvite,
   listGroupInvites,
   listGroupLocations,
+  listGroupMembers,
   listPendingEventJoinRequests,
   listUserGroups,
+  leaveGroup,
+  removeGroupMember,
   reviewEventJoinRequest,
 } = vi.hoisted(() => ({
   archiveGroup: vi.fn(),
@@ -27,8 +30,11 @@ const {
   deactivateGroupInvite: vi.fn(),
   listGroupInvites: vi.fn(),
   listGroupLocations: vi.fn(),
+  listGroupMembers: vi.fn(),
   listPendingEventJoinRequests: vi.fn(),
   listUserGroups: vi.fn(),
+  leaveGroup: vi.fn(),
+  removeGroupMember: vi.fn(),
   reviewEventJoinRequest: vi.fn(),
 }));
 
@@ -41,8 +47,11 @@ vi.mock('./groupApi', () => ({
   deactivateGroupInvite,
   listGroupInvites,
   listGroupLocations,
+  listGroupMembers,
   listPendingEventJoinRequests,
   listUserGroups,
+  leaveGroup,
+  removeGroupMember,
   reviewEventJoinRequest,
 }));
 
@@ -91,6 +100,26 @@ const location = {
   archived_at: null,
 };
 
+
+const members: GroupMember[] = [
+  {
+    id: 'member-1',
+    group_id: 'group-1',
+    user_id: 'user-1',
+    role: 'group_admin',
+    joined_at: '2026-07-03T12:00:00.000Z',
+    profiles: { display_name: 'Quest Keeper', avatar_url: null },
+  },
+  {
+    id: 'member-2',
+    group_id: 'group-1',
+    user_id: 'user-2',
+    role: 'regular',
+    joined_at: '2026-07-04T12:00:00.000Z',
+    profiles: { display_name: 'Map Maker', avatar_url: null },
+  },
+];
+
 const joinRequest = {
   id: 'request-1',
   event_id: 'event-1',
@@ -131,20 +160,26 @@ describe('GroupsPage', () => {
     deactivateGroupInvite.mockReset();
     listGroupInvites.mockReset();
     listGroupLocations.mockReset();
+    listGroupMembers.mockReset();
     listPendingEventJoinRequests.mockReset();
     listUserGroups.mockReset();
+    leaveGroup.mockReset();
+    removeGroupMember.mockReset();
     reviewEventJoinRequest.mockReset();
 
     archiveGroup.mockResolvedValue(undefined);
     listUserGroups.mockResolvedValue([adminGroup]);
     listGroupInvites.mockResolvedValue([invite]);
     listGroupLocations.mockResolvedValue([location]);
+    listGroupMembers.mockResolvedValue(members);
     listPendingEventJoinRequests.mockResolvedValue([joinRequest]);
     createGroup.mockResolvedValue({ id: 'group-2' });
     createGroupInvite.mockResolvedValue({ ...invite, id: 'invite-2', token: 'new-token' });
     createGroupLocation.mockResolvedValue({ ...location, id: 'location-2', name: 'Community Hall' });
     archiveGroupLocation.mockResolvedValue(undefined);
     deactivateGroupInvite.mockResolvedValue(undefined);
+    leaveGroup.mockResolvedValue(undefined);
+    removeGroupMember.mockResolvedValue(undefined);
     reviewEventJoinRequest.mockResolvedValue('event-1');
   });
 
@@ -161,7 +196,44 @@ describe('GroupsPage', () => {
     expect(listUserGroups).toHaveBeenCalledWith('user-1');
     expect(listGroupInvites).toHaveBeenCalledWith('group-1');
     expect(listGroupLocations).toHaveBeenCalledWith('group-1');
+    expect(listGroupMembers).toHaveBeenCalledWith('group-1');
     expect(listPendingEventJoinRequests).toHaveBeenCalledWith('group-1');
+  });
+
+  it('shows guild members and lets admins remove other members', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderGroups();
+
+    expect(await screen.findByText('Quest Keeper')).toBeInTheDocument();
+    expect(await screen.findByText('Map Maker')).toBeInTheDocument();
+    const memberCard = screen.getByText('Map Maker').closest('article');
+    if (!memberCard) throw new Error('Expected member card.');
+    fireEvent.click(within(memberCard).getByRole('button', { name: /remove/i }));
+
+    await waitFor(() => {
+      expect(removeGroupMember).toHaveBeenCalledWith('group-1', 'user-2');
+    });
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Map Maker'));
+    expect(await screen.findByText('Member removed.')).toBeInTheDocument();
+    expect(screen.queryByText('Map Maker')).not.toBeInTheDocument();
+  });
+
+  it('lets members leave guilds', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    listUserGroups.mockResolvedValueOnce([adminGroup]).mockResolvedValueOnce([]);
+
+    renderGroups();
+
+    await screen.findByText('Board games and one-shots.');
+    fireEvent.click(screen.getByRole('button', { name: /leave guild/i }));
+
+    await waitFor(() => {
+      expect(leaveGroup).toHaveBeenCalledWith('group-1');
+    });
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Friday Night Guild'));
+    expect(await screen.findByText('Left guild.')).toBeInTheDocument();
+    expect(await screen.findByText(/create a guild or join one/i)).toBeInTheDocument();
   });
 
   it('shows pending public event join requests and admits them', async () => {

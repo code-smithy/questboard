@@ -10,11 +10,14 @@ import {
   deactivateGroupInvite,
   listGroupInvites,
   listGroupLocations,
+  listGroupMembers,
   listPendingEventJoinRequests,
   listUserGroups,
+  leaveGroup,
+  removeGroupMember,
   reviewEventJoinRequest,
 } from './groupApi';
-import type { EventJoinRequest, GroupInvite, GroupLocation, GroupSummary } from './groupApi';
+import type { EventJoinRequest, GroupInvite, GroupLocation, GroupMember, GroupSummary } from './groupApi';
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -39,15 +42,19 @@ export function GroupsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [invites, setInvites] = useState<GroupInvite[]>([]);
   const [locations, setLocations] = useState<GroupLocation[]>([]);
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [joinRequests, setJoinRequests] = useState<EventJoinRequest[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
   const [isLoadingInvites, setIsLoadingInvites] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [isCreatingLocation, setIsCreatingLocation] = useState(false);
   const [isArchivingGroup, setIsArchivingGroup] = useState(false);
+  const [isLeavingGroup, setIsLeavingGroup] = useState(false);
+  const [removingMemberUserId, setRemovingMemberUserId] = useState<string | null>(null);
   const [reviewingJoinRequestId, setReviewingJoinRequestId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -69,6 +76,7 @@ export function GroupsPage() {
   );
   const canManageInvites = selectedGroup?.role === 'group_admin';
   const canArchiveGroup = selectedGroup?.role === 'group_admin';
+  const canManageMembers = selectedGroup?.role === 'group_admin';
 
   const formatLimit = useCallback((invite: GroupInvite) => {
     if (!invite.max_uses) return t('groups.unlimitedUses');
@@ -145,6 +153,27 @@ export function GroupsPage() {
     };
 
     void loadJoinRequests();
+  }, [selectedGroup, t]);
+
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!selectedGroup) {
+        setMembers([]);
+        return;
+      }
+
+      setIsLoadingMembers(true);
+
+      try {
+        setMembers(await listGroupMembers(selectedGroup.id));
+      } catch (error) {
+        setErrorMessage(getErrorMessage(error, t('groups.memberLoadError')));
+      } finally {
+        setIsLoadingMembers(false);
+      }
+    };
+
+    void loadMembers();
   }, [selectedGroup, t]);
 
   useEffect(() => {
@@ -241,6 +270,7 @@ export function GroupsPage() {
       await archiveGroup(selectedGroup.id);
       setInvites([]);
       setLocations([]);
+      setMembers([]);
       setStatusMessage(t('groups.guildArchived'));
       await loadGroups();
     } catch (error) {
@@ -250,6 +280,47 @@ export function GroupsPage() {
     }
   };
 
+  const handleLeaveGroup = async () => {
+    if (!selectedGroup || isLeavingGroup) return;
+    if (!window.confirm(t('groups.leaveGuildConfirm', { name: selectedGroup.name }))) return;
+
+    setIsLeavingGroup(true);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      await leaveGroup(selectedGroup.id);
+      setInvites([]);
+      setLocations([]);
+      setMembers([]);
+      setStatusMessage(t('groups.guildLeft'));
+      await loadGroups();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('groups.guildLeaveError')));
+    } finally {
+      setIsLeavingGroup(false);
+    }
+  };
+
+  const handleRemoveMember = async (member: GroupMember) => {
+    if (!selectedGroup || selectedGroup.role !== 'group_admin' || member.user_id === user?.id || removingMemberUserId) return;
+    const memberName = member.profiles?.display_name ?? t('event.unknownMember');
+    if (!window.confirm(t('groups.removeMemberConfirm', { member: memberName, name: selectedGroup.name }))) return;
+
+    setRemovingMemberUserId(member.user_id);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      await removeGroupMember(selectedGroup.id, member.user_id);
+      setMembers((currentMembers) => currentMembers.filter((currentMember) => currentMember.user_id !== member.user_id));
+      setStatusMessage(t('groups.memberRemoved'));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('groups.memberRemoveError')));
+    } finally {
+      setRemovingMemberUserId(null);
+    }
+  };
   const handleDeactivateInvite = async (inviteId: string) => {
     setStatusMessage(null);
     setErrorMessage(null);
@@ -273,6 +344,9 @@ export function GroupsPage() {
     try {
       await reviewEventJoinRequest(requestId, status);
       setJoinRequests((currentRequests) => currentRequests.filter((request) => request.id !== requestId));
+      if (status === 'approved' && selectedGroup) {
+        setMembers(await listGroupMembers(selectedGroup.id));
+      }
       setStatusMessage(status === 'approved' ? t('groups.requestApproved') : t('groups.requestRejected'));
     } catch (error) {
       setErrorMessage(getErrorMessage(error, t('groups.requestReviewError')));
@@ -412,6 +486,11 @@ export function GroupsPage() {
               <h3>{selectedGroup.name}</h3>
               <p>{selectedGroup.description || t('groups.noDescription')}</p>
               {selectedGroup.theme && <p className="hint">{t('groups.themePrefix', { theme: selectedGroup.theme })}</p>}
+              <div className="button-row compact-actions">
+                <button type="button" className="secondary-button" disabled={isLeavingGroup} onClick={() => void handleLeaveGroup()}>
+                  {isLeavingGroup ? t('groups.leavingGuild') : t('groups.leaveGuild')}
+                </button>
+              </div>
               {canArchiveGroup && (
                 <button type="button" className="secondary-button" disabled={isArchivingGroup} onClick={() => void handleArchiveGroup()}>
                   {isArchivingGroup ? t('groups.archivingGuild') : t('groups.archiveGuild')}
@@ -421,6 +500,43 @@ export function GroupsPage() {
           )}
         </div>
       </div>
+
+      {selectedGroup && (
+        <div className="invite-panel">
+          <div className="section-heading compact">
+            <div>
+              <p className="eyebrow">{t('groups.members')}</p>
+              <h3>{t('groups.guildMembers', { count: members.length })}</h3>
+            </div>
+            {canManageMembers && <p className="hint">{t('groups.memberManagementHint')}</p>}
+          </div>
+          {isLoadingMembers ? (
+            <p className="hint">{t('groups.loadingMembers')}</p>
+          ) : members.length ? (
+            <div className="member-list" role="list">
+              {members.map((member) => {
+                const memberName = member.profiles?.display_name ?? t('event.unknownMember');
+                const canRemoveMember = canManageMembers && member.user_id !== user?.id;
+                return (
+                  <article className="member-card" key={member.id}>
+                    <div>
+                      <strong>{memberName}</strong>
+                      <p className="hint">{member.role === 'group_admin' ? t('groups.admin') : t('groups.member')} - {t('groups.joinedAt', { date: new Date(member.joined_at).toLocaleDateString(locale) })}</p>
+                    </div>
+                    {canRemoveMember && (
+                      <button type="button" className="secondary-button" disabled={removingMemberUserId === member.user_id} onClick={() => void handleRemoveMember(member)}>
+                        {removingMemberUserId === member.user_id ? t('groups.removingMember') : t('groups.removeMember')}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="hint">{t('groups.noMembers')}</p>
+          )}
+        </div>
+      )}
 
       {selectedGroup && (
         <div className="invite-panel">

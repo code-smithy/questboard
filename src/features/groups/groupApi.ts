@@ -37,6 +37,18 @@ export type GroupLocation = {
   archived_at: string | null;
 };
 
+export type GroupMember = {
+  id: string;
+  group_id: string;
+  user_id: string;
+  role: GroupRole;
+  joined_at: string;
+  profiles: {
+    display_name: string;
+    avatar_url: string | null;
+  } | null;
+};
+
 export type EventJoinRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export type EventJoinRequest = {
@@ -160,6 +172,47 @@ export async function createGroup({ name, description, theme, createdBy }: Creat
 
 export async function archiveGroup(groupId: string) {
   const { error } = await supabase.rpc('archive_group', { target_group_id: groupId });
+
+  if (error) throw error;
+}
+
+export async function listGroupMembers(groupId: string): Promise<GroupMember[]> {
+  const { data, error } = await supabase
+    .from('group_members')
+    .select(
+      `
+        id,
+        group_id,
+        user_id,
+        role,
+        joined_at,
+        profiles (
+          display_name,
+          avatar_url
+        )
+      `,
+    )
+    .eq('group_id', groupId)
+    .is('archived_at', null)
+    .order('role', { ascending: true })
+    .order('joined_at', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []) as unknown as GroupMember[];
+}
+
+export async function leaveGroup(groupId: string) {
+  const { error } = await supabase.rpc('leave_group', { target_group_id: groupId });
+
+  if (error) throw error;
+}
+
+export async function removeGroupMember(groupId: string, memberUserId: string) {
+  const { error } = await supabase.rpc('remove_group_member', {
+    target_group_id: groupId,
+    target_user_id: memberUserId,
+  });
 
   if (error) throw error;
 }

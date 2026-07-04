@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, listGroupLocations, listPendingEventJoinRequests, reviewEventJoinRequest } from './groupApi';
+import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, leaveGroup, listGroupLocations, listGroupMembers, listPendingEventJoinRequests, removeGroupMember, reviewEventJoinRequest } from './groupApi';
 
 const { builders, from, rpc } = vi.hoisted(() => {
   const builders = {
@@ -17,11 +17,17 @@ const { builders, from, rpc } = vi.hoisted(() => {
       eq: vi.fn(() => builders.event_join_requests),
       order: vi.fn(),
     },
+    group_members: {
+      select: vi.fn(() => builders.group_members),
+      eq: vi.fn(() => builders.group_members),
+      is: vi.fn(() => builders.group_members),
+      order: vi.fn(),
+    },
   };
 
   return {
     builders,
-    from: vi.fn((table: 'locations' | 'event_join_requests') => builders[table]),
+    from: vi.fn((table: 'locations' | 'event_join_requests' | 'group_members') => builders[table]),
     rpc: vi.fn(),
   };
 });
@@ -37,8 +43,11 @@ describe('groupApi', () => {
     rpc.mockReset();
     Object.values(builders.locations).forEach((fn) => fn.mockClear?.());
     Object.values(builders.event_join_requests).forEach((fn) => fn.mockClear?.());
+    Object.values(builders.group_members).forEach((fn) => fn.mockClear?.());
     builders.locations.eq.mockImplementation(() => builders.locations);
     builders.event_join_requests.eq.mockImplementation(() => builders.event_join_requests);
+    builders.group_members.eq.mockImplementation(() => builders.group_members);
+    builders.group_members.is.mockImplementation(() => builders.group_members);
   });
 
   it('creates groups through the RLS-safe database function', async () => {
@@ -80,6 +89,34 @@ describe('groupApi', () => {
     await expect(archiveGroup('group-1')).resolves.toBeUndefined();
 
     expect(rpc).toHaveBeenCalledWith('archive_group', { target_group_id: 'group-1' });
+  });
+
+  it('lists active guild members with profile details', async () => {
+    builders.group_members.order
+      .mockReturnValueOnce(builders.group_members)
+      .mockResolvedValueOnce({ data: [{ id: 'member-1', user_id: 'user-1' }], error: null });
+
+    await expect(listGroupMembers('group-1')).resolves.toEqual([{ id: 'member-1', user_id: 'user-1' }]);
+
+    expect(from).toHaveBeenCalledWith('group_members');
+    expect(builders.group_members.select).toHaveBeenCalledWith(expect.stringContaining('profiles'));
+    expect(builders.group_members.eq).toHaveBeenCalledWith('group_id', 'group-1');
+    expect(builders.group_members.is).toHaveBeenCalledWith('archived_at', null);
+    expect(builders.group_members.order).toHaveBeenCalledWith('role', { ascending: true });
+    expect(builders.group_members.order).toHaveBeenCalledWith('joined_at', { ascending: true });
+  });
+
+  it('leaves and removes guild members through RLS-safe database functions', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await expect(leaveGroup('group-1')).resolves.toBeUndefined();
+    await expect(removeGroupMember('group-1', 'user-2')).resolves.toBeUndefined();
+
+    expect(rpc).toHaveBeenCalledWith('leave_group', { target_group_id: 'group-1' });
+    expect(rpc).toHaveBeenCalledWith('remove_group_member', {
+      target_group_id: 'group-1',
+      target_user_id: 'user-2',
+    });
   });
 
   it('lists active reusable group locations', async () => {

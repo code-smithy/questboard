@@ -266,6 +266,28 @@ nav a:hover {
   color: #f8ead2;
 }
 
+.member-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.member-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(240, 179, 90, 0.18);
+  padding-top: 1rem;
+}
+
+.member-card strong {
+  color: #f8ead2;
+}
+
+.member-card p {
+  margin: 0.25rem 0 0;
+}
+
 .status-message,
 .error-text {
   border-radius: 0.75rem;
