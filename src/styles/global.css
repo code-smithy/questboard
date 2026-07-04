@@ -429,9 +429,17 @@ nav a:hover {
   text-decoration: none;
 }
 
-.event-card:hover {
+.event-card:hover,
+.event-card:focus-within {
   border-color: rgba(240, 179, 90, 0.55);
   background: rgba(240, 179, 90, 0.1);
+}
+
+.event-card-link {
+  display: grid;
+  gap: 0.35rem;
+  color: inherit;
+  text-decoration: none;
 }
 
 .event-date,
@@ -562,6 +570,16 @@ nav a:hover {
   border-color: rgba(119, 221, 170, 0.75);
   background: rgba(119, 221, 170, 0.16);
   color: #d7ffe9;
+}
+
+.event-rsvp-actions {
+  margin-top: 0.45rem;
+}
+
+.event-rsvp-actions button {
+  min-width: 6.5rem;
+  padding: 0.62rem 0.85rem;
+  font-size: 0.85rem;
 }
 
 .attendee-list {

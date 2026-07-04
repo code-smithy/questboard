@@ -9,9 +9,11 @@ const { getCalendarReadModel } = vi.hoisted(() => ({
   getCalendarReadModel: vi.fn(),
 }));
 
-const { dismissInAppReminder, listDueInAppReminders } = vi.hoisted(() => ({
+const { dismissInAppReminder, listDueInAppReminders, recordEventHistory, setEventRsvp } = vi.hoisted(() => ({
   dismissInAppReminder: vi.fn(),
   listDueInAppReminders: vi.fn(),
+  recordEventHistory: vi.fn(),
+  setEventRsvp: vi.fn(),
 }));
 
 vi.mock('./calendarApi', () => ({
@@ -22,6 +24,8 @@ vi.mock('../events/eventApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../events/eventApi')>()),
   dismissInAppReminder,
   listDueInAppReminders,
+  recordEventHistory,
+  setEventRsvp,
 }));
 
 const baseAuthState: AuthState = {
@@ -54,7 +58,7 @@ const readModel = {
       visibility: 'private',
       status: 'open',
       category: { id: 'category-1', name: 'Board Games', color: '#f0b35a', icon: null },
-      rsvps: [{ status: 'attending' }, { status: 'maybe' }],
+      rsvps: [{ user_id: 'user-1', status: 'attending' }, { user_id: 'user-2', status: 'maybe' }],
     },
     {
       id: 'event-2',
@@ -70,7 +74,7 @@ const readModel = {
       visibility: 'public',
       status: 'confirmed',
       category: { id: 'category-2', name: 'Mini Painting', color: '#77ddaa', icon: null },
-      rsvps: [{ status: 'attending' }],
+      rsvps: [{ user_id: 'user-2', status: 'attending' }],
     },
   ],
 };
@@ -93,9 +97,13 @@ describe('CalendarPage', () => {
     dismissInAppReminder.mockReset();
     getCalendarReadModel.mockReset();
     listDueInAppReminders.mockReset();
+    recordEventHistory.mockReset();
+    setEventRsvp.mockReset();
     dismissInAppReminder.mockResolvedValue(undefined);
     getCalendarReadModel.mockResolvedValue(readModel);
     listDueInAppReminders.mockResolvedValue([]);
+    recordEventHistory.mockResolvedValue(undefined);
+    setEventRsvp.mockResolvedValue(undefined);
   });
 
   it('renders grouped agenda events from the calendar read model', async () => {
@@ -132,6 +140,30 @@ describe('CalendarPage', () => {
     const eventLink = await screen.findByRole('link', { name: /board game night/i });
     expect(eventLink).toHaveAttribute('href', '/events/event-1');
     expect(within(eventLink).getByText(/Board Games - Offline - private/i)).toBeInTheDocument();
+  });
+
+  it('lets users update their RSVP from the calendar overview', async () => {
+    renderCalendar();
+
+    const eventTitle = await screen.findByText('Board game night');
+    const eventCard = eventTitle.closest('article');
+    expect(eventCard).not.toBeNull();
+    expect(within(eventCard as HTMLElement).getByRole('button', { name: 'Attending' })).toHaveClass('is-selected');
+
+    fireEvent.click(within(eventCard as HTMLElement).getByRole('button', { name: 'Maybe' }));
+
+    await waitFor(() => {
+      expect(setEventRsvp).toHaveBeenCalledWith('event-1', 'user-1', 'maybe');
+    });
+    expect(recordEventHistory).toHaveBeenCalledWith({
+      eventId: 'event-1',
+      changedBy: 'user-1',
+      changeType: 'rsvp_updated',
+      oldValue: { status: 'attending' },
+      newValue: { status: 'maybe' },
+    });
+    expect(within(eventCard as HTMLElement).getByRole('button', { name: 'Maybe' })).toHaveClass('is-selected');
+    expect(screen.getByText(/Needs 3 more/i)).toBeInTheDocument();
   });
 
   it('shows and dismisses due in-app reminders', async () => {

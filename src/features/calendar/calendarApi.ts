@@ -25,7 +25,7 @@ export type CalendarEvent = {
     color: string;
     icon: string | null;
   } | null;
-  rsvps: Array<{ status: 'attending' | 'maybe' | 'declined' }>;
+  rsvps: Array<{ user_id: string; status: 'attending' | 'maybe' | 'declined' }>;
 };
 
 type CalendarEventRow = Omit<CalendarEvent, 'category' | 'rsvps'> & {
@@ -69,6 +69,7 @@ export async function getCalendarReadModel(userId: string): Promise<CalendarRead
           icon
         ),
         event_rsvps (
+          user_id,
           status
         )
       `,

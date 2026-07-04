@@ -59,7 +59,7 @@ describe('getCalendarReadModel', () => {
           visibility: 'private',
           status: 'open',
           categories: { id: 'category-1', name: 'Board Games', color: '#f0b35a', icon: '🎲' },
-          event_rsvps: [{ status: 'attending' }],
+          event_rsvps: [{ user_id: 'user-1', status: 'attending' }],
         },
       ],
       error: null,
@@ -67,10 +67,11 @@ describe('getCalendarReadModel', () => {
 
     await expect(getCalendarReadModel('user-1')).resolves.toMatchObject({
       groups: [{ id: 'group-1' }],
-      events: [{ id: 'event-1', category: { name: 'Board Games' }, rsvps: [{ status: 'attending' }] }],
+      events: [{ id: 'event-1', category: { name: 'Board Games' }, rsvps: [{ user_id: 'user-1', status: 'attending' }] }],
     });
 
     expect(from).toHaveBeenCalledWith('events');
+    expect(queryBuilder.select.mock.calls[0][0]).toContain('user_id');
     expect(queryBuilder.in).toHaveBeenCalledWith('group_id', ['group-1']);
     expect(queryBuilder.is).toHaveBeenCalledWith('archived_at', null);
     expect(queryBuilder.neq).toHaveBeenCalledWith('status', 'archived');
