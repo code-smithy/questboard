@@ -38,6 +38,7 @@ export type QuestEvent = {
   event_rsvps: EventRsvp[];
   event_comments: EventComment[];
   event_history: EventHistoryEntry[];
+  event_reminders: EventReminder[];
 };
 
 export type EventRsvp = {
@@ -85,6 +86,29 @@ export type EventHistoryInput = {
   changeType: string;
   oldValue?: Record<string, unknown> | null;
   newValue?: Record<string, unknown> | null;
+};
+
+export type EventReminder = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  remind_at: string;
+  method: 'in_app' | 'browser';
+  is_sent: boolean;
+  created_at: string;
+};
+
+export type DueReminder = EventReminder & {
+  events: {
+    id: string;
+    title: string;
+    start_at: string;
+    timezone: string;
+  } | null;
+};
+
+type DueReminderRow = Omit<DueReminder, 'events'> & {
+  events: DueReminder['events'] | DueReminder['events'][];
 };
 
 export type AttendanceSummary = {
@@ -275,6 +299,15 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
             display_name,
             avatar_url
           )
+        ),
+        event_reminders (
+          id,
+          event_id,
+          user_id,
+          remind_at,
+          method,
+          is_sent,
+          created_at
         )
       `,
     )
@@ -283,12 +316,13 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
 
   if (error) throw error;
 
-  const row = data as unknown as Omit<QuestEvent, 'categories' | 'locations' | 'event_rsvps' | 'event_comments' | 'event_history'> & {
+  const row = data as unknown as Omit<QuestEvent, 'categories' | 'locations' | 'event_rsvps' | 'event_comments' | 'event_history' | 'event_reminders'> & {
     categories: QuestEvent['categories'] | QuestEvent['categories'][];
     locations: QuestEvent['locations'] | QuestEvent['locations'][];
     event_rsvps: EventRsvp[] | null;
     event_comments: EventComment[] | null;
     event_history: EventHistoryEntry[] | null;
+    event_reminders: EventReminder[] | null;
   };
 
   return {
@@ -301,6 +335,7 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     event_history: (row.event_history ?? [])
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    event_reminders: row.event_reminders ?? [],
   };
 }
 
@@ -362,4 +397,120 @@ export async function recordEventHistory({ eventId, changedBy, changeType, oldVa
     });
 
   if (error) throw error;
+}
+
+export async function replaceInAppReminder(eventId: string, userId: string, eventStartAt: string, offsetMinutes: number | null) {
+  const deleteQuery = supabase
+    .from('event_reminders')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .eq('method', 'in_app');
+
+  const { error: deleteError } = await deleteQuery;
+  if (deleteError) throw deleteError;
+
+  if (offsetMinutes === null) return null;
+
+  const remindAt = new Date(new Date(eventStartAt).getTime() - offsetMinutes * 60_000).toISOString();
+  const { data, error } = await supabase
+    .from('event_reminders')
+    .insert({ event_id: eventId, user_id: userId, remind_at: remindAt, method: 'in_app' })
+    .select('id, event_id, user_id, remind_at, method, is_sent, created_at')
+    .single();
+
+  if (error) throw error;
+
+  return data as EventReminder;
+}
+
+export async function listDueInAppReminders(userId: string, now = new Date()): Promise<DueReminder[]> {
+  const { data, error } = await supabase
+    .from('event_reminders')
+    .select(
+      `
+        id,
+        event_id,
+        user_id,
+        remind_at,
+        method,
+        is_sent,
+        created_at,
+        events (
+          id,
+          title,
+          start_at,
+          timezone
+        )
+      `,
+    )
+    .eq('user_id', userId)
+    .eq('method', 'in_app')
+    .eq('is_sent', false)
+    .lte('remind_at', now.toISOString())
+    .order('remind_at', { ascending: true });
+
+  if (error) throw error;
+
+  return ((data ?? []) as unknown as DueReminderRow[]).map((reminder) => ({
+    ...reminder,
+    events: Array.isArray(reminder.events) ? reminder.events[0] ?? null : reminder.events,
+  }));
+}
+
+export async function dismissInAppReminder(reminderId: string) {
+  const { error } = await supabase
+    .from('event_reminders')
+    .update({ is_sent: true })
+    .eq('id', reminderId);
+
+  if (error) throw error;
+}
+
+function toIcsDate(value: string) {
+  return new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function escapeIcsText(value: string) {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+function getIcsLocation(event: QuestEvent) {
+  return [
+    event.locations?.name,
+    event.locations?.address,
+    event.location_text,
+  ].filter(Boolean).join(', ');
+}
+
+export function buildEventIcs(event: QuestEvent, productId = '-//Questboard//Event Export//EN') {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:${productId}`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${event.id}@questboard`,
+    `DTSTAMP:${toIcsDate(new Date().toISOString())}`,
+    `DTSTART:${toIcsDate(event.start_at)}`,
+    `DTEND:${toIcsDate(event.end_at)}`,
+    `SUMMARY:${escapeIcsText(event.title)}`,
+  ];
+
+  const description = event.description ?? event.online_details.instructions ?? '';
+  if (description) lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
+
+  const location = getIcsLocation(event);
+  if (location) lines.push(`LOCATION:${escapeIcsText(location)}`);
+
+  if (event.online_details.url) lines.push(`URL:${event.online_details.url}`);
+
+  lines.push('END:VEVENT', 'END:VCALENDAR');
+
+  return `${lines.join('\r\n')}\r\n`;
 }

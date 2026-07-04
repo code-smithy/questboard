@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { getAttendanceSummary } from '../events/eventApi';
+import { dismissInAppReminder, getAttendanceSummary, listDueInAppReminders } from '../events/eventApi';
+import type { DueReminder } from '../events/eventApi';
 import { getCalendarReadModel } from './calendarApi';
 import type { CalendarEvent, CalendarEventMode } from './calendarApi';
 
@@ -42,9 +43,19 @@ function getAttendanceLabel(event: CalendarEvent) {
   }).label;
 }
 
+function formatReminderDate(reminder: DueReminder) {
+  if (!reminder.events) return 'Unknown time';
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: reminder.events.timezone || undefined,
+  }).format(new Date(reminder.events.start_at));
+}
+
 export function CalendarPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [dueReminders, setDueReminders] = useState<DueReminder[]>([]);
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -59,6 +70,7 @@ export function CalendarPage() {
       if (!user) {
         setGroups([]);
         setEvents([]);
+        setDueReminders([]);
         setIsLoading(false);
         return;
       }
@@ -67,10 +79,11 @@ export function CalendarPage() {
       setErrorMessage(null);
 
       try {
-        const readModel = await getCalendarReadModel(user.id);
+        const [readModel, reminders] = await Promise.all([getCalendarReadModel(user.id), listDueInAppReminders(user.id)]);
         if (!isMounted) return;
         setGroups(readModel.groups.map((group) => ({ id: group.id, name: group.name })));
         setEvents(readModel.events);
+        setDueReminders(reminders);
       } catch (error) {
         if (isMounted) setErrorMessage(getErrorMessage(error));
       } finally {
@@ -84,6 +97,17 @@ export function CalendarPage() {
       isMounted = false;
     };
   }, [user]);
+
+  const handleDismissReminder = async (reminderId: string) => {
+    setErrorMessage(null);
+
+    try {
+      await dismissInAppReminder(reminderId);
+      setDueReminders((currentReminders) => currentReminders.filter((reminder) => reminder.id !== reminderId));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    }
+  };
 
   const categories = useMemo(() => {
     const names = new Set<string>();
@@ -117,6 +141,28 @@ export function CalendarPage() {
         </div>
         <Link className="login-link" to="/events/new">Post quest</Link>
       </div>
+
+      {dueReminders.length > 0 && (
+        <section className="reminder-banner" aria-labelledby="due-reminders-heading">
+          <div>
+            <p className="eyebrow">Reminders</p>
+            <h3 id="due-reminders-heading">Due now</h3>
+          </div>
+          <div className="reminder-list">
+            {dueReminders.map((reminder) => (
+              <article key={reminder.id}>
+                <div>
+                  <strong>{reminder.events?.title ?? 'Quest reminder'}</strong>
+                  <p className="hint">{formatReminderDate(reminder)}</p>
+                </div>
+                <button type="button" className="secondary-button" onClick={() => void handleDismissReminder(reminder.id)}>
+                  Dismiss
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="filter-bar" aria-label="Calendar filters">
         <label>

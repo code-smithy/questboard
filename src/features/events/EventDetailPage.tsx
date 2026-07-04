@@ -5,7 +5,7 @@ import { listUserGroups } from '../groups/groupApi';
 import type { GroupSummary } from '../groups/groupApi';
 import { EventForm } from './EventForm';
 import type { EventFormValues } from './EventForm';
-import { addEventComment, archiveEvent, archiveEventComment, getAttendanceSummary, getEvent, recordEventHistory, setEventRsvp, updateEvent } from './eventApi';
+import { addEventComment, archiveEvent, archiveEventComment, buildEventIcs, getAttendanceSummary, getEvent, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } from './eventApi';
 import type { EventRsvpStatus, QuestEvent } from './eventApi';
 
 function getErrorMessage(error: unknown) {
@@ -42,6 +42,13 @@ const rsvpOptions: Array<{ status: EventRsvpStatus; label: string }> = [
   { status: 'attending', label: 'Attending' },
   { status: 'maybe', label: 'Maybe' },
   { status: 'declined', label: 'Declined' },
+];
+
+const reminderOptions: Array<{ minutes: number | null; label: string }> = [
+  { minutes: null, label: 'No reminder' },
+  { minutes: 15, label: '15 minutes before' },
+  { minutes: 60, label: '1 hour before' },
+  { minutes: 1440, label: '1 day before' },
 ];
 
 function toHistoryValues(values: EventFormValues) {
@@ -115,6 +122,19 @@ function getLocationMapHref(event: QuestEvent) {
   return null;
 }
 
+function getReminderOffsetMinutes(event: QuestEvent, userId: string) {
+  const reminder = event.event_reminders.find((item) => item.user_id === userId && item.method === 'in_app' && !item.is_sent);
+  if (!reminder) return null;
+
+  const offset = Math.round((new Date(event.start_at).getTime() - new Date(reminder.remind_at).getTime()) / 60_000);
+  return reminderOptions.some((option) => option.minutes === offset) ? offset : null;
+}
+
+function getIcsFilename(event: QuestEvent) {
+  const slug = event.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'quest';
+  return `${slug}.ics`;
+}
+
 export function EventDetailPage() {
   const { eventId } = useParams();
   const { user } = useAuth();
@@ -125,6 +145,7 @@ export function EventDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingRsvp, setIsSavingRsvp] = useState(false);
+  const [isSavingReminder, setIsSavingReminder] = useState(false);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [commentBody, setCommentBody] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -266,6 +287,36 @@ export function EventDetailPage() {
     }
   };
 
+  const handleReminderChange = async (offsetMinutes: number | null) => {
+    if (!eventId || !user || !event) return;
+
+    setIsSavingReminder(true);
+    setErrorMessage(null);
+
+    try {
+      await replaceInAppReminder(eventId, user.id, event.start_at, offsetMinutes);
+      setEvent(await getEvent(eventId));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSavingReminder(false);
+    }
+  };
+
+  const handleDownloadIcs = () => {
+    if (!event) return;
+
+    const blob = new Blob([buildEventIcs(event)], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = getIcsFilename(event);
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   if (!user) return <Navigate to="/login" replace />;
   if (!eventId) return <Navigate to="/calendar" replace />;
 
@@ -277,6 +328,7 @@ export function EventDetailPage() {
       status: event.status,
     });
     const currentUserRsvp = event.event_rsvps.find((rsvp) => rsvp.user_id === user.id)?.status ?? null;
+    const currentReminderOffset = getReminderOffsetMinutes(event, user.id);
     const attendees = event.event_rsvps.filter((rsvp) => rsvp.status === 'attending');
     const currentGroup = groups.find((group) => group.id === event.group_id);
     const canModerateComments = currentGroup?.role === 'group_admin';
@@ -339,6 +391,28 @@ export function EventDetailPage() {
           </div>
         </section>
 
+        <section className="reminder-panel" aria-labelledby="reminder-heading">
+          <div>
+            <p className="eyebrow">Reminder</p>
+            <h3 id="reminder-heading">In-app reminder</h3>
+          </div>
+          <label>
+            Remind me
+            <select
+              value={currentReminderOffset ?? 'none'}
+              disabled={isSavingReminder}
+              onChange={(event) => {
+                const value = event.target.value;
+                void handleReminderChange(value === 'none' ? null : Number(value));
+              }}
+            >
+              {reminderOptions.map((option) => (
+                <option key={option.minutes ?? 'none'} value={option.minutes ?? 'none'}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </section>
+
         <section className="discussion-panel" aria-labelledby="comments-heading">
           <div>
             <p className="eyebrow">Discussion</p>
@@ -394,6 +468,7 @@ export function EventDetailPage() {
 
         <div className="button-row">
           <button type="button" onClick={() => setIsEditing(true)}>Edit quest</button>
+          <button type="button" className="secondary-button" onClick={handleDownloadIcs}>Download .ics</button>
           <button type="button" className="secondary-button" onClick={handleArchive} disabled={isSubmitting}>
             {isSubmitting ? 'Archiving...' : 'Archive quest'}
           </button>

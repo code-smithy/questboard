@@ -5,13 +5,14 @@ import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { EventDetailPage } from './EventDetailPage';
 
-const { addEventComment, archiveEvent, archiveEventComment, getEvent, listUserGroups, recordEventHistory, setEventRsvp, updateEvent } = vi.hoisted(() => ({
+const { addEventComment, archiveEvent, archiveEventComment, getEvent, listUserGroups, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } = vi.hoisted(() => ({
   addEventComment: vi.fn(),
   archiveEvent: vi.fn(),
   archiveEventComment: vi.fn(),
   getEvent: vi.fn(),
   listUserGroups: vi.fn(),
   recordEventHistory: vi.fn(),
+  replaceInAppReminder: vi.fn(),
   setEventRsvp: vi.fn(),
   updateEvent: vi.fn(),
 }));
@@ -27,6 +28,7 @@ vi.mock('./eventApi', async (importOriginal) => ({
   archiveEventComment,
   getEvent,
   recordEventHistory,
+  replaceInAppReminder,
   setEventRsvp,
   updateEvent,
 }));
@@ -110,6 +112,17 @@ const event = {
       profiles: { display_name: 'Map Maker', avatar_url: null },
     },
   ],
+  event_reminders: [
+    {
+      id: 'reminder-1',
+      event_id: 'event-1',
+      user_id: 'user-1',
+      remind_at: '2026-07-10T17:00:00Z',
+      method: 'in_app',
+      is_sent: false,
+      created_at: '2026-07-05T12:00:00Z',
+    },
+  ],
 };
 
 function renderEventDetail() {
@@ -133,6 +146,7 @@ describe('EventDetailPage', () => {
     getEvent.mockReset();
     listUserGroups.mockReset();
     recordEventHistory.mockReset();
+    replaceInAppReminder.mockReset();
     setEventRsvp.mockReset();
     updateEvent.mockReset();
     listUserGroups.mockResolvedValue([{ id: 'group-1', name: 'Friday Guild', role: 'regular' }]);
@@ -140,6 +154,7 @@ describe('EventDetailPage', () => {
     addEventComment.mockResolvedValue(undefined);
     archiveEventComment.mockResolvedValue(undefined);
     recordEventHistory.mockResolvedValue(undefined);
+    replaceInAppReminder.mockResolvedValue(undefined);
     setEventRsvp.mockResolvedValue(undefined);
   });
 
@@ -152,6 +167,7 @@ describe('EventDetailPage', () => {
     expect(within(screen.getByLabelText('Attending members')).getByText('Quest Keeper')).toBeInTheDocument();
     expect(screen.getByText('I can bring snacks.')).toBeInTheDocument();
     expect(screen.getByText('event updated')).toBeInTheDocument();
+    expect(screen.getByLabelText('Remind me')).toHaveValue('60');
   });
 
   it('saves the current member RSVP and reloads the event', async () => {
@@ -204,5 +220,16 @@ describe('EventDetailPage', () => {
       changeType: 'comment_archived',
       newValue: { comment_id: 'comment-1' },
     });
+  });
+
+  it('saves the current member reminder preference', async () => {
+    renderEventDetail();
+
+    fireEvent.change(await screen.findByLabelText('Remind me'), { target: { value: '15' } });
+
+    await waitFor(() => {
+      expect(replaceInAppReminder).toHaveBeenCalledWith('event-1', 'user-1', '2026-07-10T18:00:00Z', 15);
+    });
+    expect(getEvent).toHaveBeenCalledTimes(2);
   });
 });

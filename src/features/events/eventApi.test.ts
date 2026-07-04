@@ -3,10 +3,14 @@ import {
   addEventComment,
   archiveEvent,
   archiveEventComment,
+  buildEventIcs,
   createEvent,
+  dismissInAppReminder,
   getAttendanceSummary,
+  listDueInAppReminders,
   listGroupCategories,
   recordEventHistory,
+  replaceInAppReminder,
   setEventRsvp,
   updateEvent,
 } from './eventApi';
@@ -36,11 +40,21 @@ const { builders, from } = vi.hoisted(() => {
     event_history: {
       insert: vi.fn(),
     },
+    event_reminders: {
+      delete: vi.fn(() => builders.event_reminders),
+      eq: vi.fn(() => builders.event_reminders),
+      insert: vi.fn(() => builders.event_reminders),
+      select: vi.fn(() => builders.event_reminders),
+      single: vi.fn(),
+      lte: vi.fn(() => builders.event_reminders),
+      order: vi.fn(),
+      update: vi.fn(() => builders.event_reminders),
+    },
   };
 
   return {
     builders,
-    from: vi.fn((table: 'categories' | 'events' | 'event_rsvps' | 'event_comments' | 'event_history') => builders[table]),
+    from: vi.fn((table: 'categories' | 'events' | 'event_rsvps' | 'event_comments' | 'event_history' | 'event_reminders') => builders[table]),
   };
 });
 
@@ -164,6 +178,76 @@ describe('eventApi', () => {
       old_value: { title: 'Old title' },
       new_value: { title: 'New title' },
     });
+  });
+
+  it('replaces a member in-app reminder for an event', async () => {
+    builders.event_reminders.single.mockResolvedValue({
+      data: { id: 'reminder-1', event_id: 'event-1', user_id: 'user-1', remind_at: '2026-07-10T17:00:00.000Z', method: 'in_app', is_sent: false },
+      error: null,
+    });
+
+    await replaceInAppReminder('event-1', 'user-1', '2026-07-10T18:00:00.000Z', 60);
+
+    expect(builders.event_reminders.delete).toHaveBeenCalled();
+    expect(builders.event_reminders.eq).toHaveBeenCalledWith('event_id', 'event-1');
+    expect(builders.event_reminders.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(builders.event_reminders.eq).toHaveBeenCalledWith('method', 'in_app');
+    expect(builders.event_reminders.insert).toHaveBeenCalledWith({
+      event_id: 'event-1',
+      user_id: 'user-1',
+      remind_at: '2026-07-10T17:00:00.000Z',
+      method: 'in_app',
+    });
+  });
+
+  it('lists and dismisses due in-app reminders', async () => {
+    builders.event_reminders.order.mockResolvedValue({
+      data: [{ id: 'reminder-1', event_id: 'event-1', user_id: 'user-1', remind_at: '2026-07-10T17:00:00.000Z', method: 'in_app', is_sent: false }],
+      error: null,
+    });
+
+    await expect(listDueInAppReminders('user-1', new Date('2026-07-10T17:30:00.000Z'))).resolves.toHaveLength(1);
+    await dismissInAppReminder('reminder-1');
+
+    expect(builders.event_reminders.lte).toHaveBeenCalledWith('remind_at', '2026-07-10T17:30:00.000Z');
+    expect(builders.event_reminders.order).toHaveBeenCalledWith('remind_at', { ascending: true });
+    expect(builders.event_reminders.update).toHaveBeenCalledWith({ is_sent: true });
+    expect(builders.event_reminders.eq).toHaveBeenCalledWith('id', 'reminder-1');
+  });
+
+  it('builds an ICS export for a single event', () => {
+    const ics = buildEventIcs({
+      id: 'event-1',
+      group_id: 'group-1',
+      category_id: 'category-1',
+      location_id: 'location-1',
+      owner_id: 'user-1',
+      title: 'Board game night',
+      description: 'Bring snacks, sleeves; and dice.',
+      start_at: '2026-07-10T18:00:00.000Z',
+      end_at: '2026-07-10T21:00:00.000Z',
+      timezone: 'UTC',
+      mode: 'offline',
+      location_text: 'Back room',
+      online_details: {},
+      minimum_attendees: 2,
+      maximum_attendees: 5,
+      visibility: 'private',
+      status: 'open',
+      archived_at: null,
+      categories: null,
+      locations: { id: 'location-1', name: 'Game Room', address: '42 Tabletop Lane', latitude: null, longitude: null, map_url: null, notes: null },
+      event_rsvps: [],
+      event_comments: [],
+      event_history: [],
+      event_reminders: [],
+    });
+
+    expect(ics).toContain('BEGIN:VCALENDAR');
+    expect(ics).toContain('SUMMARY:Board game night');
+    expect(ics).toContain('DESCRIPTION:Bring snacks\\, sleeves\\; and dice.');
+    expect(ics).toContain('LOCATION:Game Room\\, 42 Tabletop Lane\\, Back room');
+    expect(ics).toContain('DTSTART:20260710T180000Z');
   });
 
   it('summarizes RSVP counts and attendance thresholds', () => {

@@ -471,6 +471,41 @@ nav a:hover {
   padding-top: 1.25rem;
 }
 
+.reminder-panel,
+.reminder-banner {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.35rem;
+  border-top: 1px solid rgba(240, 179, 90, 0.18);
+  padding-top: 1.25rem;
+}
+
+.reminder-panel h3,
+.reminder-banner h3 {
+  margin: 0;
+}
+
+.reminder-banner {
+  border: 1px solid rgba(119, 221, 170, 0.28);
+  border-radius: 0.85rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  background: rgba(119, 221, 170, 0.08);
+}
+
+.reminder-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.reminder-list article {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .rsvp-panel h3 {
   margin: 0;
 }

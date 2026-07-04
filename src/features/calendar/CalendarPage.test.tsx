@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
@@ -9,8 +9,19 @@ const { getCalendarReadModel } = vi.hoisted(() => ({
   getCalendarReadModel: vi.fn(),
 }));
 
+const { dismissInAppReminder, listDueInAppReminders } = vi.hoisted(() => ({
+  dismissInAppReminder: vi.fn(),
+  listDueInAppReminders: vi.fn(),
+}));
+
 vi.mock('./calendarApi', () => ({
   getCalendarReadModel,
+}));
+
+vi.mock('../events/eventApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../events/eventApi')>()),
+  dismissInAppReminder,
+  listDueInAppReminders,
 }));
 
 const baseAuthState: AuthState = {
@@ -79,8 +90,12 @@ function renderCalendar(authState: Partial<AuthState> = {}) {
 
 describe('CalendarPage', () => {
   beforeEach(() => {
+    dismissInAppReminder.mockReset();
     getCalendarReadModel.mockReset();
+    listDueInAppReminders.mockReset();
+    dismissInAppReminder.mockResolvedValue(undefined);
     getCalendarReadModel.mockResolvedValue(readModel);
+    listDueInAppReminders.mockResolvedValue([]);
   });
 
   it('renders grouped agenda events from the calendar read model', async () => {
@@ -92,6 +107,7 @@ describe('CalendarPage', () => {
     expect(screen.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument();
     expect(screen.getByText('Mini painting hangout')).toBeInTheDocument();
     expect(getCalendarReadModel).toHaveBeenCalledWith('user-1');
+    expect(listDueInAppReminders).toHaveBeenCalledWith('user-1');
   });
 
   it('filters events by guild, category, and mode', async () => {
@@ -116,5 +132,36 @@ describe('CalendarPage', () => {
     const eventLink = await screen.findByRole('link', { name: /board game night/i });
     expect(eventLink).toHaveAttribute('href', '/events/event-1');
     expect(within(eventLink).getByText(/Board Games - Offline - private/i)).toBeInTheDocument();
+  });
+
+  it('shows and dismisses due in-app reminders', async () => {
+    listDueInAppReminders.mockResolvedValue([
+      {
+        id: 'reminder-1',
+        event_id: 'event-1',
+        user_id: 'user-1',
+        remind_at: '2026-07-10T17:00:00Z',
+        method: 'in_app',
+        is_sent: false,
+        created_at: '2026-07-09T12:00:00Z',
+        events: {
+          id: 'event-1',
+          title: 'Board game night',
+          start_at: '2026-07-10T18:00:00Z',
+          timezone: 'UTC',
+        },
+      },
+    ]);
+
+    renderCalendar();
+
+    expect(await screen.findByRole('heading', { name: 'Due now' })).toBeInTheDocument();
+    expect(screen.getAllByText('Board game night')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+    await waitFor(() => {
+      expect(dismissInAppReminder).toHaveBeenCalledWith('reminder-1');
+    });
+    expect(screen.queryByRole('heading', { name: 'Due now' })).not.toBeInTheDocument();
   });
 });
