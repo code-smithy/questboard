@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
+  archiveGroup,
   archiveGroupLocation,
   createGroup,
   createGroupInvite,
@@ -42,6 +43,7 @@ export function GroupsPage() {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [isCreatingLocation, setIsCreatingLocation] = useState(false);
+  const [isArchivingGroup, setIsArchivingGroup] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [theme, setTheme] = useState('');
@@ -61,6 +63,7 @@ export function GroupsPage() {
     [groups, selectedGroupId],
   );
   const canManageInvites = selectedGroup?.role === 'group_admin';
+  const canArchiveGroup = selectedGroup?.role === 'group_admin';
 
   const formatLimit = useCallback((invite: GroupInvite) => {
     if (!invite.max_uses) return t('groups.unlimitedUses');
@@ -196,6 +199,27 @@ export function GroupsPage() {
       setErrorMessage(getErrorMessage(error, t('groups.inviteCreateError')));
     } finally {
       setIsCreatingInvite(false);
+    }
+  };
+
+  const handleArchiveGroup = async () => {
+    if (!selectedGroup || selectedGroup.role !== 'group_admin' || isArchivingGroup) return;
+    if (!window.confirm(t('groups.archiveGuildConfirm', { name: selectedGroup.name }))) return;
+
+    setIsArchivingGroup(true);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      await archiveGroup(selectedGroup.id);
+      setInvites([]);
+      setLocations([]);
+      setStatusMessage(t('groups.guildArchived'));
+      await loadGroups();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('groups.guildArchiveError')));
+    } finally {
+      setIsArchivingGroup(false);
     }
   };
 
@@ -345,6 +369,11 @@ export function GroupsPage() {
               <h3>{selectedGroup.name}</h3>
               <p>{selectedGroup.description || t('groups.noDescription')}</p>
               {selectedGroup.theme && <p className="hint">{t('groups.themePrefix', { theme: selectedGroup.theme })}</p>}
+              {canArchiveGroup && (
+                <button type="button" className="secondary-button" disabled={isArchivingGroup} onClick={() => void handleArchiveGroup()}>
+                  {isArchivingGroup ? t('groups.archivingGuild') : t('groups.archiveGuild')}
+                </button>
+              )}
             </div>
           )}
         </div>

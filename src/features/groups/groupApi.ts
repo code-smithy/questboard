@@ -136,6 +136,12 @@ export async function createGroup({ name, description, theme, createdBy }: Creat
   return { id: data as string };
 }
 
+export async function archiveGroup(groupId: string) {
+  const { error } = await supabase.rpc('archive_group', { target_group_id: groupId });
+
+  if (error) throw error;
+}
+
 export async function listGroupInvites(groupId: string): Promise<GroupInvite[]> {
   const { data, error } = await supabase
     .from('group_invites')

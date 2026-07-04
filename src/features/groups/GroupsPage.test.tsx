@@ -1,12 +1,13 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { GroupsPage } from './GroupsPage';
 import type { GroupInvite, GroupSummary } from './groupApi';
 
 const {
+  archiveGroup,
   archiveGroupLocation,
   createGroup,
   createGroupInvite,
@@ -16,6 +17,7 @@ const {
   listGroupLocations,
   listUserGroups,
 } = vi.hoisted(() => ({
+  archiveGroup: vi.fn(),
   archiveGroupLocation: vi.fn(),
   createGroup: vi.fn(),
   createGroupInvite: vi.fn(),
@@ -27,6 +29,7 @@ const {
 }));
 
 vi.mock('./groupApi', () => ({
+  archiveGroup,
   archiveGroupLocation,
   createGroup,
   createGroupInvite,
@@ -94,6 +97,7 @@ function renderGroups(authState: Partial<AuthState> = {}) {
 
 describe('GroupsPage', () => {
   beforeEach(() => {
+    archiveGroup.mockReset();
     archiveGroupLocation.mockReset();
     createGroup.mockReset();
     createGroupInvite.mockReset();
@@ -103,6 +107,7 @@ describe('GroupsPage', () => {
     listGroupLocations.mockReset();
     listUserGroups.mockReset();
 
+    archiveGroup.mockResolvedValue(undefined);
     listUserGroups.mockResolvedValue([adminGroup]);
     listGroupInvites.mockResolvedValue([invite]);
     listGroupLocations.mockResolvedValue([location]);
@@ -111,6 +116,10 @@ describe('GroupsPage', () => {
     createGroupLocation.mockResolvedValue({ ...location, id: 'location-2', name: 'Community Hall' });
     archiveGroupLocation.mockResolvedValue(undefined);
     deactivateGroupInvite.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('lists the signed-in user groups and admin invite links', async () => {
@@ -173,6 +182,32 @@ describe('GroupsPage', () => {
     await waitFor(() => {
       expect(deactivateGroupInvite).toHaveBeenCalledWith('invite-2');
     });
+  });
+
+  it('archives guilds for guild admins', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    listUserGroups.mockResolvedValueOnce([adminGroup]).mockResolvedValueOnce([]);
+
+    renderGroups();
+
+    await screen.findByText('Board games and one-shots.');
+    fireEvent.click(screen.getByRole('button', { name: /archive guild/i }));
+
+    await waitFor(() => {
+      expect(archiveGroup).toHaveBeenCalledWith('group-1');
+    });
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Friday Night Guild'));
+    expect(await screen.findByText('Guild archived.')).toBeInTheDocument();
+    expect(await screen.findByText(/create a guild or join one/i)).toBeInTheDocument();
+  });
+
+  it('does not show guild archive actions to regular members', async () => {
+    listUserGroups.mockResolvedValue([{ ...adminGroup, role: 'regular' }]);
+
+    renderGroups();
+
+    expect(await screen.findByText('Board games and one-shots.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /archive guild/i })).not.toBeInTheDocument();
   });
 
   it('creates and archives reusable locations', async () => {

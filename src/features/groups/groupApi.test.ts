@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { archiveGroupLocation, createGroup, createGroupLocation, listGroupLocations } from './groupApi';
+import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, listGroupLocations } from './groupApi';
 
 const { builders, from, rpc } = vi.hoisted(() => {
   const builders = {
@@ -65,6 +65,14 @@ describe('groupApi', () => {
       group_theme: null,
       group_created_by: 'user-1',
     });
+  });
+
+  it('archives groups through the RLS-safe database function', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await expect(archiveGroup('group-1')).resolves.toBeUndefined();
+
+    expect(rpc).toHaveBeenCalledWith('archive_group', { target_group_id: 'group-1' });
   });
 
   it('lists active reusable group locations', async () => {
