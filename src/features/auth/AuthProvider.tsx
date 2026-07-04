@@ -1,43 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import { AuthContext } from './AuthContext';
 import type { AuthState } from './AuthContext';
 import type { Profile } from './types';
+import { upsertProfileForUser } from './profileSync';
 import { getOAuthCodeFromLocation, getOAuthTokenSessionFromLocation, hasOAuthCallbackParams } from './oauthError';
-
-function getDisplayName(user: User) {
-  return (
-    user.user_metadata.full_name ||
-    user.user_metadata.name ||
-    user.user_metadata.preferred_username ||
-    user.email ||
-    'New adventurer'
-  );
-}
-
-async function upsertProfile(user: User) {
-  const profilePayload = {
-    id: user.id,
-    discord_user_id: user.user_metadata.provider_id ?? null,
-    display_name: getDisplayName(user),
-    avatar_url: user.user_metadata.avatar_url ?? null,
-    last_seen_at: new Date().toISOString(),
-  };
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .upsert(profilePayload, { onConflict: 'id' })
-    .select()
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data as Profile;
-}
 
 function cleanOAuthCallbackUrl() {
   if (!hasOAuthCallbackParams()) return;
@@ -67,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      setProfile(await upsertProfile(user));
+      setProfile(await upsertProfileForUser(supabase, user));
     } catch (error) {
       console.error('Questboard could not sync the signed-in profile', error);
       setProfile(null);
@@ -115,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (currentSession?.user) {
           try {
-            setProfile(await upsertProfile(currentSession.user));
+            setProfile(await upsertProfileForUser(supabase, currentSession.user));
           } catch (error) {
             console.error('Questboard could not sync the signed-in profile', error);
             setProfile(null);
@@ -142,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
 
       if (nextSession?.user) {
-        void upsertProfile(nextSession.user)
+        void upsertProfileForUser(supabase, nextSession.user)
           .then(setProfile)
           .catch((error) => {
             console.error('Questboard could not sync the signed-in profile', error);

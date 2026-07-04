@@ -42,6 +42,7 @@ button:disabled {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid rgba(240, 179, 90, 0.32);
@@ -50,6 +51,10 @@ textarea {
   color: #f8ead2;
   background: rgba(15, 16, 21, 0.46);
   font: inherit;
+}
+
+select {
+  appearance: none;
 }
 
 textarea {
@@ -374,4 +379,89 @@ nav a:hover {
   color: #f8ead2;
   background: rgba(15, 16, 21, 0.72);
   white-space: pre-wrap;
+}
+
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(10rem, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.calendar-months {
+  display: grid;
+  gap: 1.35rem;
+}
+
+.month-section {
+  border-top: 1px solid rgba(240, 179, 90, 0.18);
+  padding-top: 1rem;
+}
+
+.event-agenda {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.event-card {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgba(240, 179, 90, 0.2);
+  border-left: 0.35rem solid #f0b35a;
+  border-radius: 0.95rem;
+  padding: 0.9rem 1rem;
+  color: inherit;
+  background: rgba(15, 16, 21, 0.3);
+  text-decoration: none;
+}
+
+.event-card:hover {
+  border-color: rgba(240, 179, 90, 0.55);
+  background: rgba(240, 179, 90, 0.1);
+}
+
+.event-date,
+.event-meta,
+.event-attendance {
+  color: #bfae95;
+  font-size: 0.9rem;
+}
+
+.event-title {
+  color: #f8ead2;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .filter-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.event-form {
+  margin-top: 1.25rem;
+}
+
+.inline-form.two-up {
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+}
+
+.inline-form.three-up {
+  grid-template-columns: repeat(3, minmax(10rem, 1fr));
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 720px) {
+  .inline-form.two-up,
+  .inline-form.three-up {
+    grid-template-columns: 1fr;
+  }
 }
