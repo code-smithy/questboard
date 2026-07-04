@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { listGroupCategories } from './eventApi';
 import type { EventCategory, EventFormInput, EventMode, EventStatus, EventVisibility } from './eventApi';
-import type { GroupSummary } from '../groups/groupApi';
+import { listGroupLocations } from '../groups/groupApi';
+import type { GroupLocation, GroupSummary } from '../groups/groupApi';
 
 export type EventFormValues = Omit<EventFormInput, 'ownerId'>;
 
@@ -30,7 +31,9 @@ function toLocalInputValue(value?: string) {
 export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel }: EventFormProps) {
   const [groupId, setGroupId] = useState(initialValues?.groupId ?? groups[0]?.id ?? '');
   const [categories, setCategories] = useState<EventCategory[]>([]);
+  const [locations, setLocations] = useState<GroupLocation[]>([]);
   const [categoryId, setCategoryId] = useState(initialValues?.categoryId ?? '');
+  const [locationId, setLocationId] = useState(initialValues?.locationId ?? '');
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [startAt, setStartAt] = useState(toLocalInputValue(initialValues?.startAt) || defaultStart);
@@ -48,26 +51,33 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadGroupOptions = async () => {
       if (!groupId) {
         setCategories([]);
+        setLocations([]);
         return;
       }
 
       try {
-        const nextCategories = await listGroupCategories(groupId);
+        const [nextCategories, nextLocations] = await Promise.all([listGroupCategories(groupId), listGroupLocations(groupId)]);
         setCategories(nextCategories);
+        setLocations(nextLocations);
         setCategoryId((currentCategoryId) => (
           currentCategoryId && nextCategories.some((category) => category.id === currentCategoryId)
             ? currentCategoryId
             : nextCategories[0]?.id ?? ''
         ));
+        setLocationId((currentLocationId) => (
+          currentLocationId && nextLocations.some((location) => location.id === currentLocationId)
+            ? currentLocationId
+            : ''
+        ));
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : 'Questboard could not load categories.');
+        setErrorMessage(error instanceof Error ? error.message : 'Questboard could not load guild options.');
       }
     };
 
-    void loadCategories();
+    void loadGroupOptions();
   }, [groupId]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -102,6 +112,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
     await onSubmit({
       groupId,
       categoryId: categoryId || null,
+      locationId: locationId || null,
       title,
       description,
       startAt: toIsoFromLocal(startAt),
@@ -184,8 +195,15 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
         </label>
       </div>
       <label>
-        Location details
-        <input value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder="Address, room, map link, or parking notes" />
+        Saved location
+        <select value={locationId} onChange={(event) => setLocationId(event.target.value)}>
+          <option value="">One-off location</option>
+          {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+        </select>
+      </label>
+      <label>
+        Location notes
+        <input value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder="Room, parking, doorbell, or one-off address" />
       </label>
       <div className="inline-form two-up">
         <label>

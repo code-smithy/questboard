@@ -20,6 +20,7 @@ function toFormValues(event: QuestEvent): EventFormValues {
   return {
     groupId: event.group_id,
     categoryId: event.category_id,
+    locationId: event.location_id,
     title: event.title,
     description: event.description ?? '',
     startAt: event.start_at,
@@ -47,6 +48,7 @@ function toHistoryValues(values: EventFormValues) {
   return {
     group_id: values.groupId,
     category_id: values.categoryId,
+    location_id: values.locationId,
     title: values.title.trim(),
     description: values.description.trim() || null,
     start_at: values.startAt,
@@ -70,6 +72,7 @@ function toEventHistoryValues(event: QuestEvent) {
   return {
     group_id: event.group_id,
     category_id: event.category_id,
+    location_id: event.location_id,
     title: event.title,
     description: event.description,
     start_at: event.start_at,
@@ -101,6 +104,15 @@ function getChangedValues(oldValue: Record<string, unknown>, newValue: Record<st
 
 function formatHistoryLabel(changeType: string) {
   return changeType.replace(/_/g, ' ');
+}
+
+function getLocationMapHref(event: QuestEvent) {
+  if (event.locations?.map_url) return event.locations.map_url;
+  if (event.locations?.latitude !== null && event.locations?.longitude !== null && event.locations?.latitude !== undefined && event.locations?.longitude !== undefined) {
+    return `geo:${event.locations.latitude},${event.locations.longitude}`;
+  }
+  if (event.locations?.address) return `https://www.openstreetmap.org/search?query=${encodeURIComponent(event.locations.address)}`;
+  return null;
 }
 
 export function EventDetailPage() {
@@ -268,6 +280,7 @@ export function EventDetailPage() {
     const attendees = event.event_rsvps.filter((rsvp) => rsvp.status === 'attending');
     const currentGroup = groups.find((group) => group.id === event.group_id);
     const canModerateComments = currentGroup?.role === 'group_admin';
+    const locationMapHref = getLocationMapHref(event);
 
     return (
       <section className="panel">
@@ -280,7 +293,20 @@ export function EventDetailPage() {
           <div><dt>Mode</dt><dd>{event.mode}</dd></div>
           <div><dt>Status</dt><dd>{event.status}</dd></div>
           <div><dt>Attendance</dt><dd>{attendance.label}</dd></div>
-          <div><dt>Location</dt><dd>{event.location_text ?? 'No location details yet.'}</dd></div>
+          <div>
+            <dt>Location</dt>
+            <dd>
+              {event.locations ? (
+                <span className="location-detail">
+                  <strong>{event.locations.name}</strong>
+                  {event.locations.address && <span>{event.locations.address}</span>}
+                  {event.location_text && <span>{event.location_text}</span>}
+                  {event.locations.notes && <span>{event.locations.notes}</span>}
+                  {locationMapHref && <a href={locationMapHref} target="_blank" rel="noreferrer">Open map link</a>}
+                </span>
+              ) : event.location_text ?? 'No location details yet.'}
+            </dd>
+          </div>
           <div><dt>Online</dt><dd>{event.online_details.platform || event.online_details.url || event.online_details.instructions || 'No online details yet.'}</dd></div>
           <div><dt>Description</dt><dd>{event.description ?? 'No description yet.'}</dd></div>
         </dl>

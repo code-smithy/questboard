@@ -3,11 +3,14 @@ import { useAuth } from '../auth/AuthContext';
 import {
   createGroup,
   createGroupInvite,
+  createGroupLocation,
+  archiveGroupLocation,
   deactivateGroupInvite,
+  listGroupLocations,
   listGroupInvites,
   listUserGroups,
 } from './groupApi';
-import type { GroupInvite, GroupSummary } from './groupApi';
+import type { GroupInvite, GroupLocation, GroupSummary } from './groupApi';
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -23,20 +26,36 @@ function formatLimit(invite: GroupInvite) {
   return `${invite.used_count}/${invite.max_uses} used`;
 }
 
+function getLocationMapHref(location: GroupLocation) {
+  if (location.map_url) return location.map_url;
+  if (location.latitude !== null && location.longitude !== null) return `geo:${location.latitude},${location.longitude}`;
+  if (location.address) return `https://www.openstreetmap.org/search?query=${encodeURIComponent(location.address)}`;
+  return null;
+}
+
 export function GroupsPage() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [invites, setInvites] = useState<GroupInvite[]>([]);
+  const [locations, setLocations] = useState<GroupLocation[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
   const [isLoadingInvites, setIsLoadingInvites] = useState(false);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [isCreatingLocation, setIsCreatingLocation] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [theme, setTheme] = useState('');
   const [maxUses, setMaxUses] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
+  const [locationName, setLocationName] = useState('');
+  const [locationAddress, setLocationAddress] = useState('');
+  const [locationLatitude, setLocationLatitude] = useState('');
+  const [locationLongitude, setLocationLongitude] = useState('');
+  const [locationMapUrl, setLocationMapUrl] = useState('');
+  const [locationNotes, setLocationNotes] = useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -94,6 +113,27 @@ export function GroupsPage() {
     };
 
     void loadInvites();
+  }, [selectedGroup]);
+
+  useEffect(() => {
+    const loadLocations = async () => {
+      if (!selectedGroup) {
+        setLocations([]);
+        return;
+      }
+
+      setIsLoadingLocations(true);
+
+      try {
+        setLocations(await listGroupLocations(selectedGroup.id));
+      } catch (error) {
+        setErrorMessage(getErrorMessage(error, 'Questboard could not load saved locations.'));
+      } finally {
+        setIsLoadingLocations(false);
+      }
+    };
+
+    void loadLocations();
   }, [selectedGroup]);
 
   const handleCreateGroup = async (event: FormEvent<HTMLFormElement>) => {
@@ -169,6 +209,65 @@ export function GroupsPage() {
       setStatusMessage('Invite link disabled.');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, 'Questboard could not disable that invite.'));
+    }
+  };
+
+  const handleCreateLocation = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!user || !selectedGroup || isCreatingLocation) return;
+    if (!locationName.trim()) {
+      setErrorMessage('Give the location a name before saving it.');
+      return;
+    }
+
+    const parsedLatitude = locationLatitude ? Number(locationLatitude) : null;
+    const parsedLongitude = locationLongitude ? Number(locationLongitude) : null;
+    if ((parsedLatitude !== null && Number.isNaN(parsedLatitude)) || (parsedLongitude !== null && Number.isNaN(parsedLongitude))) {
+      setErrorMessage('Latitude and longitude must be valid numbers when provided.');
+      return;
+    }
+
+    setIsCreatingLocation(true);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const location = await createGroupLocation({
+        groupId: selectedGroup.id,
+        createdBy: user.id,
+        name: locationName,
+        address: locationAddress,
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
+        mapUrl: locationMapUrl,
+        notes: locationNotes,
+      });
+      setLocations((currentLocations) => [...currentLocations, location].sort((a, b) => a.name.localeCompare(b.name)));
+      setLocationName('');
+      setLocationAddress('');
+      setLocationLatitude('');
+      setLocationLongitude('');
+      setLocationMapUrl('');
+      setLocationNotes('');
+      setStatusMessage('Location saved.');
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, 'Questboard could not save that location.'));
+    } finally {
+      setIsCreatingLocation(false);
+    }
+  };
+
+  const handleArchiveLocation = async (locationId: string) => {
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      await archiveGroupLocation(locationId);
+      setLocations((currentLocations) => currentLocations.filter((location) => location.id !== locationId));
+      setStatusMessage('Location archived.');
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, 'Questboard could not archive that location.'));
     }
   };
 
@@ -248,6 +347,79 @@ export function GroupsPage() {
           )}
         </div>
       </div>
+
+      {selectedGroup && (
+        <div className="invite-panel">
+          <div className="section-heading compact">
+            <div>
+              <p className="eyebrow">Locations</p>
+              <h3>Saved meetup spots</h3>
+            </div>
+            <p className="hint">Store reusable addresses, map links, and venue notes for future quests.</p>
+          </div>
+
+          <form className="form-card location-form" onSubmit={handleCreateLocation}>
+            <label>
+              Location name
+              <input value={locationName} onChange={(event) => setLocationName(event.target.value)} maxLength={100} required />
+            </label>
+            <label>
+              Address
+              <input value={locationAddress} onChange={(event) => setLocationAddress(event.target.value)} placeholder="Street, city, room, or venue address" />
+            </label>
+            <div className="inline-form two-up">
+              <label>
+                Latitude
+                <input value={locationLatitude} onChange={(event) => setLocationLatitude(event.target.value)} placeholder="Optional" />
+              </label>
+              <label>
+                Longitude
+                <input value={locationLongitude} onChange={(event) => setLocationLongitude(event.target.value)} placeholder="Optional" />
+              </label>
+            </div>
+            <label>
+              Map URL
+              <input value={locationMapUrl} onChange={(event) => setLocationMapUrl(event.target.value)} placeholder="https://..." />
+            </label>
+            <label>
+              Notes
+              <textarea value={locationNotes} onChange={(event) => setLocationNotes(event.target.value)} rows={3} />
+            </label>
+            <button type="submit" disabled={isCreatingLocation}>
+              {isCreatingLocation ? 'Saving...' : 'Save location'}
+            </button>
+          </form>
+
+          {isLoadingLocations ? (
+            <p className="hint">Loading saved locations...</p>
+          ) : locations.length ? (
+            <div className="location-list" role="list">
+              {locations.map((location) => {
+                const mapHref = getLocationMapHref(location);
+                const canArchiveLocation = selectedGroup.role === 'group_admin' || location.created_by === user?.id;
+
+                return (
+                  <article className="location-card" key={location.id}>
+                    <div>
+                      <strong>{location.name}</strong>
+                      {location.address && <p>{location.address}</p>}
+                      {location.notes && <p className="hint">{location.notes}</p>}
+                      {mapHref && <a href={mapHref} target="_blank" rel="noreferrer">Open map link</a>}
+                    </div>
+                    {canArchiveLocation && (
+                      <button type="button" className="secondary-button" onClick={() => void handleArchiveLocation(location.id)}>
+                        Archive
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="hint">Save a location to reuse it when creating events.</p>
+          )}
+        </div>
+      )}
 
       {selectedGroup && (
         <div className="invite-panel">

@@ -23,6 +23,20 @@ export type GroupInvite = {
   created_at: string;
 };
 
+export type GroupLocation = {
+  id: string;
+  group_id: string;
+  name: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  map_url: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  archived_at: string | null;
+};
+
 type GroupMembershipRow = {
   role: GroupRole;
   joined_at: string;
@@ -48,6 +62,17 @@ type CreateInviteInput = {
   createdBy: string;
   expiresAt?: string | null;
   maxUses?: number | null;
+};
+
+type CreateLocationInput = {
+  groupId: string;
+  createdBy: string;
+  name: string;
+  address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  mapUrl?: string;
+  notes?: string;
 };
 
 function normalizeOptionalText(value: string | undefined) {
@@ -153,4 +178,47 @@ export async function acceptGroupInvite(inviteToken: string) {
   if (error) throw error;
 
   return data as string;
+}
+
+export async function listGroupLocations(groupId: string): Promise<GroupLocation[]> {
+  const { data, error } = await supabase
+    .from('locations')
+    .select('id, group_id, name, address, latitude, longitude, map_url, notes, created_by, created_at, archived_at')
+    .eq('group_id', groupId)
+    .is('archived_at', null)
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []) as GroupLocation[];
+}
+
+export async function createGroupLocation({ groupId, createdBy, name, address, latitude, longitude, mapUrl, notes }: CreateLocationInput) {
+  const { data, error } = await supabase
+    .from('locations')
+    .insert({
+      group_id: groupId,
+      created_by: createdBy,
+      name: name.trim(),
+      address: normalizeOptionalText(address),
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
+      map_url: normalizeOptionalText(mapUrl),
+      notes: normalizeOptionalText(notes),
+    })
+    .select('id, group_id, name, address, latitude, longitude, map_url, notes, created_by, created_at, archived_at')
+    .single();
+
+  if (error) throw error;
+
+  return data as GroupLocation;
+}
+
+export async function archiveGroupLocation(locationId: string) {
+  const { error } = await supabase
+    .from('locations')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', locationId);
+
+  if (error) throw error;
 }

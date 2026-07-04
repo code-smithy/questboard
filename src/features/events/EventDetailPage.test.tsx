@@ -45,6 +45,7 @@ const event = {
   id: 'event-1',
   group_id: 'group-1',
   category_id: 'category-1',
+  location_id: 'location-1',
   owner_id: 'user-2',
   title: 'Board game night',
   description: 'Bring snacks.',
@@ -60,6 +61,15 @@ const event = {
   status: 'open',
   archived_at: null,
   categories: { id: 'category-1', name: 'Board Games', color: '#f0b35a', icon: null },
+  locations: {
+    id: 'location-1',
+    name: 'The Game Room',
+    address: '42 Tabletop Lane',
+    latitude: null,
+    longitude: null,
+    map_url: 'https://maps.example/game-room',
+    notes: 'Ring the side bell.',
+  },
   event_rsvps: [
     {
       id: 'rsvp-1',

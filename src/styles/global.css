@@ -444,6 +444,10 @@ nav a:hover {
   margin-top: 1.25rem;
 }
 
+.location-form {
+  margin-bottom: 1rem;
+}
+
 .inline-form.two-up {
   grid-template-columns: repeat(2, minmax(12rem, 1fr));
 }
@@ -500,6 +504,38 @@ nav a:hover {
   color: #f8ead2;
   background: rgba(248, 234, 210, 0.06);
   font-size: 0.9rem;
+}
+
+.location-detail {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.location-detail a,
+.location-card a {
+  color: #f0b35a;
+  font-weight: 700;
+}
+
+.location-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.location-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  border: 1px solid rgba(248, 234, 210, 0.12);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+  background: rgba(15, 16, 21, 0.26);
+}
+
+.location-card p {
+  margin: 0.35rem 0 0;
 }
 
 .discussion-panel,

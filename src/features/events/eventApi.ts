@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import type { GroupLocation } from '../groups/groupApi';
 
 export type EventMode = 'online' | 'offline' | 'hybrid';
 export type EventStatus = 'draft' | 'open' | 'confirmed' | 'cancelled' | 'archived';
@@ -17,6 +18,7 @@ export type QuestEvent = {
   id: string;
   group_id: string;
   category_id: string | null;
+  location_id: string | null;
   owner_id: string;
   title: string;
   description: string | null;
@@ -32,6 +34,7 @@ export type QuestEvent = {
   status: EventStatus;
   archived_at: string | null;
   categories: Pick<EventCategory, 'id' | 'name' | 'color' | 'icon'> | null;
+  locations: Pick<GroupLocation, 'id' | 'name' | 'address' | 'latitude' | 'longitude' | 'map_url' | 'notes'> | null;
   event_rsvps: EventRsvp[];
   event_comments: EventComment[];
   event_history: EventHistoryEntry[];
@@ -97,6 +100,7 @@ export type AttendanceSummary = {
 export type EventFormInput = {
   groupId: string;
   categoryId: string | null;
+  locationId: string | null;
   ownerId: string;
   title: string;
   description: string;
@@ -123,6 +127,7 @@ function toPayload(input: EventFormInput) {
   return {
     group_id: input.groupId,
     category_id: input.categoryId,
+    location_id: input.locationId,
     owner_id: input.ownerId,
     title: input.title.trim(),
     description: optionalText(input.description),
@@ -205,6 +210,7 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
         id,
         group_id,
         category_id,
+        location_id,
         owner_id,
         title,
         description,
@@ -224,6 +230,15 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
           name,
           color,
           icon
+        ),
+        locations (
+          id,
+          name,
+          address,
+          latitude,
+          longitude,
+          map_url,
+          notes
         ),
         event_rsvps (
           id,
@@ -268,8 +283,9 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
 
   if (error) throw error;
 
-  const row = data as unknown as Omit<QuestEvent, 'categories' | 'event_rsvps' | 'event_comments' | 'event_history'> & {
+  const row = data as unknown as Omit<QuestEvent, 'categories' | 'locations' | 'event_rsvps' | 'event_comments' | 'event_history'> & {
     categories: QuestEvent['categories'] | QuestEvent['categories'][];
+    locations: QuestEvent['locations'] | QuestEvent['locations'][];
     event_rsvps: EventRsvp[] | null;
     event_comments: EventComment[] | null;
     event_history: EventHistoryEntry[] | null;
@@ -278,6 +294,7 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
   return {
     ...row,
     categories: Array.isArray(row.categories) ? row.categories[0] ?? null : row.categories,
+    locations: Array.isArray(row.locations) ? row.locations[0] ?? null : row.locations,
     event_rsvps: row.event_rsvps ?? [],
     event_comments: (row.event_comments ?? [])
       .filter((comment) => !comment.archived_at)

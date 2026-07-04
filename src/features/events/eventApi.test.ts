@@ -51,6 +51,7 @@ vi.mock('../../lib/supabase', () => ({
 const input = {
   groupId: 'group-1',
   categoryId: 'category-1',
+  locationId: 'location-1',
   ownerId: 'user-1',
   title: '  Quest night  ',
   description: ' Bring snacks ',
@@ -96,6 +97,7 @@ describe('eventApi', () => {
       title: 'Quest night',
       description: 'Bring snacks',
       location_text: 'Tavern',
+      location_id: 'location-1',
       online_details: { platform: null, url: null, instructions: null },
       minimum_attendees: 2,
       maximum_attendees: 5,

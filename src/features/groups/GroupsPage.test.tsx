@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
@@ -7,24 +7,33 @@ import { GroupsPage } from './GroupsPage';
 import type { GroupInvite, GroupSummary } from './groupApi';
 
 const {
+  archiveGroupLocation,
   createGroup,
   createGroupInvite,
+  createGroupLocation,
   deactivateGroupInvite,
   listGroupInvites,
+  listGroupLocations,
   listUserGroups,
 } = vi.hoisted(() => ({
+  archiveGroupLocation: vi.fn(),
   createGroup: vi.fn(),
   createGroupInvite: vi.fn(),
+  createGroupLocation: vi.fn(),
   deactivateGroupInvite: vi.fn(),
   listGroupInvites: vi.fn(),
+  listGroupLocations: vi.fn(),
   listUserGroups: vi.fn(),
 }));
 
 vi.mock('./groupApi', () => ({
+  archiveGroupLocation,
   createGroup,
   createGroupInvite,
+  createGroupLocation,
   deactivateGroupInvite,
   listGroupInvites,
+  listGroupLocations,
   listUserGroups,
 }));
 
@@ -59,6 +68,20 @@ const invite: GroupInvite = {
   created_at: '2026-07-03T12:30:00.000Z',
 };
 
+const location = {
+  id: 'location-1',
+  group_id: 'group-1',
+  name: 'The Game Room',
+  address: '42 Tabletop Lane',
+  latitude: null,
+  longitude: null,
+  map_url: 'https://maps.example/game-room',
+  notes: 'Ring the side bell.',
+  created_by: 'user-1',
+  created_at: '2026-07-03T12:35:00.000Z',
+  archived_at: null,
+};
+
 function renderGroups(authState: Partial<AuthState> = {}) {
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
@@ -71,16 +94,22 @@ function renderGroups(authState: Partial<AuthState> = {}) {
 
 describe('GroupsPage', () => {
   beforeEach(() => {
+    archiveGroupLocation.mockReset();
     createGroup.mockReset();
     createGroupInvite.mockReset();
+    createGroupLocation.mockReset();
     deactivateGroupInvite.mockReset();
     listGroupInvites.mockReset();
+    listGroupLocations.mockReset();
     listUserGroups.mockReset();
 
     listUserGroups.mockResolvedValue([adminGroup]);
     listGroupInvites.mockResolvedValue([invite]);
+    listGroupLocations.mockResolvedValue([location]);
     createGroup.mockResolvedValue({ id: 'group-2' });
     createGroupInvite.mockResolvedValue({ ...invite, id: 'invite-2', token: 'new-token' });
+    createGroupLocation.mockResolvedValue({ ...location, id: 'location-2', name: 'Community Hall' });
+    archiveGroupLocation.mockResolvedValue(undefined);
     deactivateGroupInvite.mockResolvedValue(undefined);
   });
 
@@ -89,8 +118,10 @@ describe('GroupsPage', () => {
 
     expect(await screen.findByText('Board games and one-shots.')).toBeInTheDocument();
     expect(await screen.findByText(/#\/join\/invite-token/)).toBeInTheDocument();
+    expect(await screen.findByText('The Game Room')).toBeInTheDocument();
     expect(listUserGroups).toHaveBeenCalledWith('user-1');
     expect(listGroupInvites).toHaveBeenCalledWith('group-1');
+    expect(listGroupLocations).toHaveBeenCalledWith('group-1');
   });
 
   it('creates a group for the current user', async () => {
@@ -141,6 +172,38 @@ describe('GroupsPage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /disable/i })[0]);
     await waitFor(() => {
       expect(deactivateGroupInvite).toHaveBeenCalledWith('invite-2');
+    });
+  });
+
+  it('creates and archives reusable locations', async () => {
+    renderGroups();
+
+    await screen.findByText('The Game Room');
+    fireEvent.change(screen.getByLabelText(/location name/i), { target: { value: 'Community Hall' } });
+    fireEvent.change(screen.getByLabelText(/address/i), { target: { value: 'Main Street 5' } });
+    fireEvent.change(screen.getByLabelText(/map url/i), { target: { value: 'https://maps.example/community' } });
+    fireEvent.change(screen.getByLabelText(/notes/i), { target: { value: 'Use the north entrance.' } });
+    fireEvent.click(screen.getByRole('button', { name: /save location/i }));
+
+    await waitFor(() => {
+      expect(createGroupLocation).toHaveBeenCalledWith({
+        groupId: 'group-1',
+        createdBy: 'user-1',
+        name: 'Community Hall',
+        address: 'Main Street 5',
+        latitude: null,
+        longitude: null,
+        mapUrl: 'https://maps.example/community',
+        notes: 'Use the north entrance.',
+      });
+    });
+    expect(await screen.findByText('Location saved.')).toBeInTheDocument();
+
+    const existingLocationCard = screen.getByText('The Game Room').closest('article');
+    if (!existingLocationCard) throw new Error('Expected existing location card.');
+    fireEvent.click(within(existingLocationCard).getByRole('button', { name: /archive/i }));
+    await waitFor(() => {
+      expect(archiveGroupLocation).toHaveBeenCalledWith('location-1');
     });
   });
 });
