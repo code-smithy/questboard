@@ -161,7 +161,7 @@ type EventPayloadOverrides = {
 function toPayload(input: EventFormInput, overrides: EventPayloadOverrides = {}) {
   const recurrenceRule = Object.prototype.hasOwnProperty.call(overrides, 'recurrenceRule') ? overrides.recurrenceRule : input.recurrenceRule;
 
-  return {
+  const payload = {
     group_id: input.groupId,
     category_id: input.categoryId,
     location_id: input.locationId,
@@ -183,8 +183,11 @@ function toPayload(input: EventFormInput, overrides: EventPayloadOverrides = {})
     visibility: input.visibility,
     status: input.status,
     recurrence_rule: recurrenceRule,
-    recurrence_parent_id: overrides.recurrenceParentId ?? null,
   };
+
+  return Object.prototype.hasOwnProperty.call(overrides, 'recurrenceParentId')
+    ? { ...payload, recurrence_parent_id: overrides.recurrenceParentId ?? null }
+    : payload;
 }
 
 function getOccurrencePayloads(input: EventFormInput, parentId: string) {
@@ -249,7 +252,7 @@ export async function listGroupCategories(groupId: string): Promise<EventCategor
 export async function createEvent(input: EventFormInput) {
   const { data, error } = await supabase
     .from('events')
-    .insert(toPayload(input))
+    .insert(toPayload(input, { recurrenceParentId: null }))
     .select('id')
     .single();
 
@@ -265,6 +268,32 @@ export async function createEvent(input: EventFormInput) {
   }
 
   return { id: data.id as string };
+}
+
+async function replaceFutureOccurrences(parentId: string, input: EventFormInput, now = new Date()) {
+  const archivedAt = now.toISOString();
+  const seriesStart = new Date(input.startAt);
+  const cutoff = new Date(Math.max(seriesStart.getTime(), now.getTime())).toISOString();
+
+  const { error: archiveError } = await supabase
+    .from('events')
+    .update({ status: 'archived', archived_at: archivedAt })
+    .eq('recurrence_parent_id', parentId)
+    .is('archived_at', null)
+    .gte('start_at', cutoff);
+
+  if (archiveError) throw archiveError;
+
+  const occurrencePayloads = getOccurrencePayloads(input, parentId)
+    .filter((payload) => new Date(payload.start_at).getTime() >= new Date(cutoff).getTime());
+
+  if (occurrencePayloads.length) {
+    const { error: occurrenceError } = await supabase
+      .from('events')
+      .insert(occurrencePayloads);
+
+    if (occurrenceError) throw occurrenceError;
+  }
 }
 
 export async function getEvent(eventId: string): Promise<QuestEvent> {
@@ -389,6 +418,8 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
     .eq('id', eventId);
 
   if (error) throw error;
+
+  await replaceFutureOccurrences(eventId, input);
 }
 
 export async function archiveEvent(eventId: string) {

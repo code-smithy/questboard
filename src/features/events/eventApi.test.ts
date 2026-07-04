@@ -27,7 +27,9 @@ const { builders, from } = vi.hoisted(() => {
       select: vi.fn(() => builders.events),
       single: vi.fn(),
       update: vi.fn(() => builders.events),
-      eq: vi.fn(),
+      eq: vi.fn(() => builders.events),
+      is: vi.fn(() => builders.events),
+      gte: vi.fn(),
     },
     event_rsvps: {
       upsert: vi.fn(),
@@ -146,7 +148,7 @@ describe('eventApi', () => {
   });
 
   it('updates and archives events', async () => {
-    builders.events.eq.mockResolvedValue({ error: null });
+    builders.events.gte.mockResolvedValue({ error: null });
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-04T12:00:00.000Z'));
 
@@ -155,6 +157,35 @@ describe('eventApi', () => {
 
     expect(builders.events.update).toHaveBeenCalledWith(expect.objectContaining({ title: 'Quest night' }));
     expect(builders.events.update).toHaveBeenCalledWith({ status: 'archived', archived_at: '2026-07-04T12:00:00.000Z' });
+  });
+
+  it('replaces generated future occurrences when a series is updated', async () => {
+    builders.events.gte.mockResolvedValue({ error: null });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-04T12:00:00.000Z'));
+
+    await updateEvent('event-1', { ...input, recurrenceRule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO;COUNT=3' });
+
+    expect(builders.events.update).toHaveBeenCalledWith(expect.objectContaining({
+      recurrence_rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO;COUNT=3',
+    }));
+    expect(builders.events.update).toHaveBeenCalledWith({
+      status: 'archived',
+      archived_at: '2026-07-04T12:00:00.000Z',
+    });
+    expect(builders.events.eq).toHaveBeenCalledWith('recurrence_parent_id', 'event-1');
+    expect(builders.events.is).toHaveBeenCalledWith('archived_at', null);
+    expect(builders.events.gte).toHaveBeenCalledWith('start_at', '2026-07-10T18:00:00.000Z');
+    expect(builders.events.insert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        start_at: '2026-07-20T18:00:00.000Z',
+        recurrence_parent_id: 'event-1',
+      }),
+      expect.objectContaining({
+        start_at: '2026-08-03T18:00:00.000Z',
+        recurrence_parent_id: 'event-1',
+      }),
+    ]);
   });
 
   it('upserts a member RSVP for an event', async () => {
