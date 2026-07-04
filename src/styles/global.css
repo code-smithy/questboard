@@ -346,6 +346,19 @@ nav a:hover {
   border-radius: 999px;
 }
 
+.language-select {
+  max-width: 20rem;
+  margin-top: 1.25rem;
+}
+
+.language-select .hint {
+  color: #bfae95;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .details-list {
   display: grid;
   gap: 1rem;

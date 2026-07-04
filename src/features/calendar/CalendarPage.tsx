@@ -3,21 +3,16 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { dismissInAppReminder, getAttendanceSummary, listDueInAppReminders } from '../events/eventApi';
 import type { DueReminder } from '../events/eventApi';
+import { formatAttendanceLabel, useLanguage } from '../i18n/LanguageContext';
 import { getCalendarReadModel } from './calendarApi';
 import type { CalendarEvent, CalendarEventMode } from './calendarApi';
 
-const modeLabels: Record<CalendarEventMode, string> = {
-  online: 'Online',
-  offline: 'Offline',
-  hybrid: 'Hybrid',
-};
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error && error.message ? error.message : 'Questboard could not load your calendar.';
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function formatEventDate(event: CalendarEvent) {
-  return new Intl.DateTimeFormat(undefined, {
+function formatEventDate(event: CalendarEvent, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: event.timezone || undefined,
@@ -29,23 +24,14 @@ function getMonthKey(value: string | Date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-function getMonthLabel(monthKey: string) {
+function getMonthLabel(monthKey: string, locale: string) {
   const [year, month] = monthKey.split('-').map(Number);
-  return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)));
+  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
-function getAttendanceLabel(event: CalendarEvent) {
-  return getAttendanceSummary({
-    rsvps: event.rsvps,
-    minimumAttendees: event.minimum_attendees,
-    maximumAttendees: event.maximum_attendees,
-    status: event.status,
-  }).label;
-}
-
-function formatReminderDate(reminder: DueReminder) {
-  if (!reminder.events) return 'Unknown time';
-  return new Intl.DateTimeFormat(undefined, {
+function formatReminderDate(reminder: DueReminder, locale: string, unknownTimeLabel: string) {
+  if (!reminder.events) return unknownTimeLabel;
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: reminder.events.timezone || undefined,
@@ -54,6 +40,7 @@ function formatReminderDate(reminder: DueReminder) {
 
 export function CalendarPage() {
   const { user } = useAuth();
+  const { locale, t } = useLanguage();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [dueReminders, setDueReminders] = useState<DueReminder[]>([]);
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
@@ -85,7 +72,7 @@ export function CalendarPage() {
         setEvents(readModel.events);
         setDueReminders(reminders);
       } catch (error) {
-        if (isMounted) setErrorMessage(getErrorMessage(error));
+        if (isMounted) setErrorMessage(getErrorMessage(error, t('calendar.loadError')));
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -96,7 +83,7 @@ export function CalendarPage() {
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [t, user]);
 
   const handleDismissReminder = async (reminderId: string) => {
     setErrorMessage(null);
@@ -105,7 +92,7 @@ export function CalendarPage() {
       await dismissInAppReminder(reminderId);
       setDueReminders((currentReminders) => currentReminders.filter((reminder) => reminder.id !== reminderId));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('calendar.loadError')));
     }
   };
 
@@ -136,27 +123,27 @@ export function CalendarPage() {
     <section className="panel calendar-panel">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Calendar</p>
-          <h2>Your quest board</h2>
+          <p className="eyebrow">{t('calendar.eyebrow')}</p>
+          <h2>{t('calendar.title')}</h2>
         </div>
-        <Link className="login-link" to="/events/new">Post quest</Link>
+        <Link className="login-link" to="/events/new">{t('calendar.postQuest')}</Link>
       </div>
 
       {dueReminders.length > 0 && (
         <section className="reminder-banner" aria-labelledby="due-reminders-heading">
           <div>
-            <p className="eyebrow">Reminders</p>
-            <h3 id="due-reminders-heading">Due now</h3>
+            <p className="eyebrow">{t('calendar.reminders')}</p>
+            <h3 id="due-reminders-heading">{t('calendar.dueNow')}</h3>
           </div>
           <div className="reminder-list">
             {dueReminders.map((reminder) => (
               <article key={reminder.id}>
                 <div>
-                  <strong>{reminder.events?.title ?? 'Quest reminder'}</strong>
-                  <p className="hint">{formatReminderDate(reminder)}</p>
+                  <strong>{reminder.events?.title ?? t('calendar.questReminder')}</strong>
+                  <p className="hint">{formatReminderDate(reminder, locale, t('calendar.unknownTime'))}</p>
                 </div>
                 <button type="button" className="secondary-button" onClick={() => void handleDismissReminder(reminder.id)}>
-                  Dismiss
+                  {t('calendar.dismiss')}
                 </button>
               </article>
             ))}
@@ -164,55 +151,66 @@ export function CalendarPage() {
         </section>
       )}
 
-      <div className="filter-bar" aria-label="Calendar filters">
+      <div className="filter-bar" aria-label={t('calendar.filters')}>
         <label>
-          Guild
+          {t('calendar.guild')}
           <select value={selectedGroupId} onChange={(event) => setSelectedGroupId(event.target.value)}>
-            <option value="all">All guilds</option>
+            <option value="all">{t('calendar.allGuilds')}</option>
             {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
           </select>
         </label>
         <label>
-          Category
+          {t('calendar.category')}
           <select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)}>
-            <option value="all">All categories</option>
+            <option value="all">{t('calendar.allCategories')}</option>
             {categories.map((category) => <option key={category} value={category}>{category}</option>)}
           </select>
         </label>
         <label>
-          Mode
+          {t('calendar.mode')}
           <select value={selectedMode} onChange={(event) => setSelectedMode(event.target.value as 'all' | CalendarEventMode)}>
-            <option value="all">All modes</option>
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
-            <option value="hybrid">Hybrid</option>
+            <option value="all">{t('calendar.allModes')}</option>
+            <option value="online">{t('mode.online')}</option>
+            <option value="offline">{t('mode.offline')}</option>
+            <option value="hybrid">{t('mode.hybrid')}</option>
           </select>
         </label>
       </div>
 
       {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
       {isLoading ? (
-        <p className="hint">Loading your quest board...</p>
+        <p className="hint">{t('calendar.loading')}</p>
       ) : !groups.length ? (
-        <p className="hint">Create or join a guild to see calendar events here.</p>
+        <p className="hint">{t('calendar.noGroups')}</p>
       ) : !filteredEvents.length ? (
-        <p className="hint">No events match these filters yet.</p>
+        <p className="hint">{t('calendar.noMatches')}</p>
       ) : (
         <div className="calendar-months">
           {monthKeys.map((monthKey) => (
             <section className="month-section" key={monthKey}>
-              <h3>{getMonthLabel(monthKey)}</h3>
+              <h3>{getMonthLabel(monthKey, locale)}</h3>
               <div className="event-agenda" role="list">
-                {eventsByMonth[monthKey].map((event) => (
-                  <Link className="event-card" to={`/events/${event.id}`} key={event.id}>
-                    <span className="event-date">{formatEventDate(event)}</span>
-                    <span className="event-title">{event.title}</span>
-                    <span className="event-meta">
-                      {event.category?.name ?? 'Uncategorized'} - {modeLabels[event.mode]} - {event.visibility}
-                    </span>
-                    <span className="event-attendance">{getAttendanceLabel(event)}</span>
-                  </Link>
-                ))}
+                {eventsByMonth[monthKey].map((event) => {
+                  const attendance = getAttendanceSummary({
+                    rsvps: event.rsvps,
+                    minimumAttendees: event.minimum_attendees,
+                    maximumAttendees: event.maximum_attendees,
+                    status: event.status,
+                  });
+
+                  return (
+                    <Link className="event-card" to={`/events/${event.id}`} key={event.id}>
+                      <span className="event-date">{formatEventDate(event, locale)}</span>
+                      <span className="event-title">{event.title}</span>
+                      <span className="event-meta">
+                        {event.category?.name ?? t('event.uncategorized')} - {t(`mode.${event.mode}`)} - {t(`visibility.${event.visibility}`)}
+                      </span>
+                      <span className="event-attendance">
+                        {formatAttendanceLabel(t, { ...attendance, maximumAttendees: event.maximum_attendees, status: event.status })}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           ))}

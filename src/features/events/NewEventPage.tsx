@@ -3,16 +3,18 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { listUserGroups } from '../groups/groupApi';
 import type { GroupSummary } from '../groups/groupApi';
+import { useLanguage } from '../i18n/LanguageContext';
 import { EventForm } from './EventForm';
 import type { EventFormValues } from './EventForm';
 import { createEvent } from './eventApi';
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error && error.message ? error.message : 'Questboard could not save that quest.';
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export function NewEventPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,14 +31,14 @@ export function NewEventPage() {
       try {
         setGroups(await listUserGroups(user.id));
       } catch (error) {
-        setErrorMessage(getErrorMessage(error));
+        setErrorMessage(getErrorMessage(error, t('event.saveError')));
       } finally {
         setIsLoading(false);
       }
     };
 
     void loadGroups();
-  }, [user]);
+  }, [t, user]);
 
   const handleSubmit = async (values: EventFormValues) => {
     if (!user) return;
@@ -48,7 +50,7 @@ export function NewEventPage() {
       const event = await createEvent({ ...values, ownerId: user.id });
       navigate(`/events/${event.id}`, { replace: true });
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('event.saveError')));
     } finally {
       setIsSubmitting(false);
     }
@@ -58,16 +60,16 @@ export function NewEventPage() {
 
   return (
     <section className="panel">
-      <p className="eyebrow">Create event</p>
-      <h2>Post a new quest</h2>
-      <p>Choose the guild, category, schedule, location or online details, attendance limits, and visibility.</p>
+      <p className="eyebrow">{t('event.createEyebrow')}</p>
+      <h2>{t('event.createTitle')}</h2>
+      <p>{t('event.createDescription')}</p>
       {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
       {isLoading ? (
-        <p className="hint">Loading guilds...</p>
+        <p className="hint">{t('event.loadGuilds')}</p>
       ) : groups.length ? (
-        <EventForm groups={groups} isSubmitting={isSubmitting} submitLabel="Post quest" onSubmit={handleSubmit} />
+        <EventForm groups={groups} isSubmitting={isSubmitting} submitLabel={t('event.postQuest')} onSubmit={handleSubmit} />
       ) : (
-        <p className="hint">Create or join a guild before posting a quest.</p>
+        <p className="hint">{t('event.noGuilds')}</p>
       )}
     </section>
   );

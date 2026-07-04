@@ -3,17 +3,18 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { listUserGroups } from '../groups/groupApi';
 import type { GroupSummary } from '../groups/groupApi';
+import { formatAttendanceLabel, useLanguage } from '../i18n/LanguageContext';
 import { EventForm } from './EventForm';
 import type { EventFormValues } from './EventForm';
 import { addEventComment, archiveEvent, archiveEventComment, buildEventIcs, getAttendanceSummary, getEvent, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } from './eventApi';
 import type { EventRsvpStatus, QuestEvent } from './eventApi';
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error && error.message ? error.message : 'Questboard could not load that quest.';
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function formatDate(value: string, timezone: string) {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone || undefined }).format(new Date(value));
+function formatDate(value: string, timezone: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone || undefined }).format(new Date(value));
 }
 
 function toFormValues(event: QuestEvent): EventFormValues {
@@ -38,17 +39,17 @@ function toFormValues(event: QuestEvent): EventFormValues {
   };
 }
 
-const rsvpOptions: Array<{ status: EventRsvpStatus; label: string }> = [
-  { status: 'attending', label: 'Attending' },
-  { status: 'maybe', label: 'Maybe' },
-  { status: 'declined', label: 'Declined' },
+const rsvpOptions: Array<{ status: EventRsvpStatus; labelKey: 'rsvp.attending' | 'rsvp.maybe' | 'rsvp.declined' }> = [
+  { status: 'attending', labelKey: 'rsvp.attending' },
+  { status: 'maybe', labelKey: 'rsvp.maybe' },
+  { status: 'declined', labelKey: 'rsvp.declined' },
 ];
 
-const reminderOptions: Array<{ minutes: number | null; label: string }> = [
-  { minutes: null, label: 'No reminder' },
-  { minutes: 15, label: '15 minutes before' },
-  { minutes: 60, label: '1 hour before' },
-  { minutes: 1440, label: '1 day before' },
+const reminderOptions: Array<{ minutes: number | null; labelKey: 'reminder.none' | 'reminder.15' | 'reminder.60' | 'reminder.1440' }> = [
+  { minutes: null, labelKey: 'reminder.none' },
+  { minutes: 15, labelKey: 'reminder.15' },
+  { minutes: 60, labelKey: 'reminder.60' },
+  { minutes: 1440, labelKey: 'reminder.1440' },
 ];
 
 function toHistoryValues(values: EventFormValues) {
@@ -138,6 +139,7 @@ function getIcsFilename(event: QuestEvent) {
 export function EventDetailPage() {
   const { eventId } = useParams();
   const { user } = useAuth();
+  const { locale, t } = useLanguage();
   const navigate = useNavigate();
   const [event, setEvent] = useState<QuestEvent | null>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
@@ -162,14 +164,14 @@ export function EventDetailPage() {
         setEvent(nextEvent);
         setGroups(nextGroups);
       } catch (error) {
-        setErrorMessage(getErrorMessage(error));
+        setErrorMessage(getErrorMessage(error, t('event.loadError')));
       } finally {
         setIsLoading(false);
       }
     };
 
     void loadEvent();
-  }, [eventId, user]);
+  }, [eventId, t, user]);
 
   const handleUpdate = async (values: EventFormValues) => {
     if (!user || !eventId) return;
@@ -193,7 +195,7 @@ export function EventDetailPage() {
       setEvent(await getEvent(eventId));
       setIsEditing(false);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('event.loadError')));
     } finally {
       setIsSubmitting(false);
     }
@@ -216,7 +218,7 @@ export function EventDetailPage() {
       });
       navigate('/calendar', { replace: true });
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('event.loadError')));
       setIsSubmitting(false);
     }
   };
@@ -239,7 +241,7 @@ export function EventDetailPage() {
       });
       setEvent(await getEvent(eventId));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('event.loadError')));
     } finally {
       setIsSavingRsvp(false);
     }
@@ -262,7 +264,7 @@ export function EventDetailPage() {
       setCommentBody('');
       setEvent(await getEvent(eventId));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('event.loadError')));
     } finally {
       setIsPostingComment(false);
     }
@@ -283,7 +285,7 @@ export function EventDetailPage() {
       });
       setEvent(await getEvent(eventId));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('event.loadError')));
     }
   };
 
@@ -297,7 +299,7 @@ export function EventDetailPage() {
       await replaceInAppReminder(eventId, user.id, event.start_at, offsetMinutes);
       setEvent(await getEvent(eventId));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('event.loadError')));
     } finally {
       setIsSavingReminder(false);
     }
@@ -336,17 +338,20 @@ export function EventDetailPage() {
 
     return (
       <section className="panel">
-        <p className="eyebrow">Event detail</p>
+        <p className="eyebrow">{t('event.detailEyebrow')}</p>
         {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
         <h2>{event.title}</h2>
         <dl className="details-list">
-          <div><dt>When</dt><dd>{formatDate(event.start_at, event.timezone)} - {formatDate(event.end_at, event.timezone)}</dd></div>
-          <div><dt>Category</dt><dd>{event.categories?.name ?? 'Uncategorized'}</dd></div>
-          <div><dt>Mode</dt><dd>{event.mode}</dd></div>
-          <div><dt>Status</dt><dd>{event.status}</dd></div>
-          <div><dt>Attendance</dt><dd>{attendance.label}</dd></div>
+          <div><dt>{t('event.when')}</dt><dd>{formatDate(event.start_at, event.timezone, locale)} - {formatDate(event.end_at, event.timezone, locale)}</dd></div>
+          <div><dt>{t('event.category')}</dt><dd>{event.categories?.name ?? t('event.uncategorized')}</dd></div>
+          <div><dt>{t('event.mode')}</dt><dd>{t(`mode.${event.mode}`)}</dd></div>
+          <div><dt>{t('event.status')}</dt><dd>{t(`status.${event.status}`)}</dd></div>
           <div>
-            <dt>Location</dt>
+            <dt>{t('event.attendance')}</dt>
+            <dd>{formatAttendanceLabel(t, { ...attendance, maximumAttendees: event.maximum_attendees, status: event.status })}</dd>
+          </div>
+          <div>
+            <dt>{t('event.location')}</dt>
             <dd>
               {event.locations ? (
                 <span className="location-detail">
@@ -354,24 +359,24 @@ export function EventDetailPage() {
                   {event.locations.address && <span>{event.locations.address}</span>}
                   {event.location_text && <span>{event.location_text}</span>}
                   {event.locations.notes && <span>{event.locations.notes}</span>}
-                  {locationMapHref && <a href={locationMapHref} target="_blank" rel="noreferrer">Open map link</a>}
+                  {locationMapHref && <a href={locationMapHref} target="_blank" rel="noreferrer">{t('event.openMap')}</a>}
                 </span>
-              ) : event.location_text ?? 'No location details yet.'}
+              ) : event.location_text ?? t('event.noLocation')}
             </dd>
           </div>
-          <div><dt>Online</dt><dd>{event.online_details.platform || event.online_details.url || event.online_details.instructions || 'No online details yet.'}</dd></div>
-          <div><dt>Description</dt><dd>{event.description ?? 'No description yet.'}</dd></div>
+          <div><dt>{t('event.online')}</dt><dd>{event.online_details.platform || event.online_details.url || event.online_details.instructions || t('event.noOnline')}</dd></div>
+          <div><dt>{t('event.description')}</dt><dd>{event.description ?? t('event.noDescription')}</dd></div>
         </dl>
 
         <section className="rsvp-panel" aria-labelledby="rsvp-heading">
           <div>
-            <p className="eyebrow">RSVP</p>
-            <h3 id="rsvp-heading">Attendance</h3>
+            <p className="eyebrow">{t('event.rsvpEyebrow')}</p>
+            <h3 id="rsvp-heading">{t('event.rsvpTitle')}</h3>
             <p className="hint">
-              {attendance.attendingCount} attending, {attendance.maybeCount} maybe, {attendance.declinedCount} declined.
+              {t('event.rsvpSummary', { attending: attendance.attendingCount, maybe: attendance.maybeCount, declined: attendance.declinedCount })}
             </p>
           </div>
-          <div className="rsvp-actions" aria-label="Choose your RSVP">
+          <div className="rsvp-actions" aria-label={t('event.chooseRsvp')}>
             {rsvpOptions.map((option) => (
               <button
                 type="button"
@@ -380,24 +385,24 @@ export function EventDetailPage() {
                 key={option.status}
                 onClick={() => void handleRsvp(option.status)}
               >
-                {option.label}
+                {t(option.labelKey)}
               </button>
             ))}
           </div>
-          <div className="attendee-list" aria-label="Attending members">
+          <div className="attendee-list" aria-label={t('event.attendingMembers')}>
             {attendees.length ? attendees.map((rsvp) => (
-              <span key={rsvp.id}>{rsvp.profiles?.display_name ?? 'Unknown member'}</span>
-            )) : <span>No confirmed attendees yet.</span>}
+              <span key={rsvp.id}>{rsvp.profiles?.display_name ?? t('event.unknownMember')}</span>
+            )) : <span>{t('event.noAttendees')}</span>}
           </div>
         </section>
 
         <section className="reminder-panel" aria-labelledby="reminder-heading">
           <div>
-            <p className="eyebrow">Reminder</p>
-            <h3 id="reminder-heading">In-app reminder</h3>
+            <p className="eyebrow">{t('event.reminderEyebrow')}</p>
+            <h3 id="reminder-heading">{t('event.reminderTitle')}</h3>
           </div>
           <label>
-            Remind me
+            {t('event.remindMe')}
             <select
               value={currentReminderOffset ?? 'none'}
               disabled={isSavingReminder}
@@ -407,7 +412,7 @@ export function EventDetailPage() {
               }}
             >
               {reminderOptions.map((option) => (
-                <option key={option.minutes ?? 'none'} value={option.minutes ?? 'none'}>{option.label}</option>
+                <option key={option.minutes ?? 'none'} value={option.minutes ?? 'none'}>{t(option.labelKey)}</option>
               ))}
             </select>
           </label>
@@ -415,8 +420,8 @@ export function EventDetailPage() {
 
         <section className="discussion-panel" aria-labelledby="comments-heading">
           <div>
-            <p className="eyebrow">Discussion</p>
-            <h3 id="comments-heading">Comments</h3>
+            <p className="eyebrow">{t('event.discussion')}</p>
+            <h3 id="comments-heading">{t('event.comments')}</h3>
           </div>
           <div className="comment-list">
             {event.event_comments.length ? event.event_comments.map((comment) => {
@@ -425,32 +430,32 @@ export function EventDetailPage() {
               return (
                 <article className="comment-item" key={comment.id}>
                   <div>
-                    <strong>{comment.profiles?.display_name ?? 'Unknown member'}</strong>
-                    <time dateTime={comment.created_at}>{formatDate(comment.created_at, event.timezone)}</time>
+                    <strong>{comment.profiles?.display_name ?? t('event.unknownMember')}</strong>
+                    <time dateTime={comment.created_at}>{formatDate(comment.created_at, event.timezone, locale)}</time>
                   </div>
                   <p>{comment.body}</p>
                   {canArchiveComment && (
                     <button type="button" className="secondary-button" onClick={() => void handleArchiveComment(comment.id)}>
-                      Archive comment
+                      {t('event.archiveComment')}
                     </button>
                   )}
                 </article>
               );
-            }) : <p className="hint">No comments yet.</p>}
+            }) : <p className="hint">{t('event.noComments')}</p>}
           </div>
           <label>
-            Add comment
+            {t('event.addComment')}
             <textarea value={commentBody} onChange={(event) => setCommentBody(event.target.value)} rows={3} />
           </label>
           <button type="button" disabled={isPostingComment} onClick={() => void handleAddComment()}>
-            {isPostingComment ? 'Posting...' : 'Post comment'}
+            {isPostingComment ? t('event.posting') : t('event.postComment')}
           </button>
         </section>
 
         <section className="history-panel" aria-labelledby="history-heading">
           <div>
-            <p className="eyebrow">History</p>
-            <h3 id="history-heading">Event changes</h3>
+            <p className="eyebrow">{t('event.history')}</p>
+            <h3 id="history-heading">{t('event.changes')}</h3>
           </div>
           {event.event_history.length ? (
             <ol className="history-list">
@@ -458,19 +463,19 @@ export function EventDetailPage() {
                 <li key={entry.id}>
                   <span>{formatHistoryLabel(entry.change_type)}</span>
                   <small>
-                    {entry.profiles?.display_name ?? 'System'} - {formatDate(entry.created_at, event.timezone)}
+                    {entry.profiles?.display_name ?? t('event.system')} - {formatDate(entry.created_at, event.timezone, locale)}
                   </small>
                 </li>
               ))}
             </ol>
-          ) : <p className="hint">No changes recorded yet.</p>}
+          ) : <p className="hint">{t('event.noChanges')}</p>}
         </section>
 
         <div className="button-row">
-          <button type="button" onClick={() => setIsEditing(true)}>Edit quest</button>
-          <button type="button" className="secondary-button" onClick={handleDownloadIcs}>Download .ics</button>
+          <button type="button" onClick={() => setIsEditing(true)}>{t('event.editQuest')}</button>
+          <button type="button" className="secondary-button" onClick={handleDownloadIcs}>{t('event.downloadIcs')}</button>
           <button type="button" className="secondary-button" onClick={handleArchive} disabled={isSubmitting}>
-            {isSubmitting ? 'Archiving...' : 'Archive quest'}
+            {isSubmitting ? t('event.archiving') : t('event.archiveQuest')}
           </button>
         </div>
       </section>
@@ -479,16 +484,16 @@ export function EventDetailPage() {
 
   return (
     <section className="panel">
-      <p className="eyebrow">Event detail</p>
+      <p className="eyebrow">{t('event.detailEyebrow')}</p>
       {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
       {isLoading ? (
-        <p className="hint">Loading quest details...</p>
+        <p className="hint">{t('event.loadingDetails')}</p>
       ) : !event ? (
-        <p className="hint">Quest not found.</p>
+        <p className="hint">{t('event.notFound')}</p>
       ) : (
         <>
-          <h2>Edit quest</h2>
-          <EventForm groups={groups} initialValues={toFormValues(event)} isSubmitting={isSubmitting} submitLabel="Save quest" onSubmit={handleUpdate} />
+          <h2>{t('event.editTitle')}</h2>
+          <EventForm groups={groups} initialValues={toFormValues(event)} isSubmitting={isSubmitting} submitLabel={t('event.saveQuest')} onSubmit={handleUpdate} />
         </>
       )}
     </section>

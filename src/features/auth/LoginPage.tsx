@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from './AuthContext';
 import { getAuthRedirectUrl } from './authRedirect';
 import { saveAuthReturnTo } from './authReturnTo';
 import { getInvalidDiscordClientIdMessage } from './discordOAuth';
-import { useAuth } from './AuthContext';
 
 export function LoginPage() {
   const location = useLocation();
   const { isConfigured, isLoading, user } = useAuth();
+  const { t } = useLanguage();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const redirectTo = (location.state as { from?: Location } | null)?.from?.pathname ?? '/calendar';
@@ -18,7 +20,7 @@ export function LoginPage() {
     if (isSigningIn) return;
 
     if (!isConfigured) {
-      setAuthError('Discord login is not configured yet. Add Supabase URL and anon key environment values, then rebuild the app.');
+      setAuthError(t('auth.login.notConfigured'));
       return;
     }
 
@@ -37,13 +39,13 @@ export function LoginPage() {
       });
 
       if (error) {
-        setAuthError(error.message || 'Discord login could not be started. Please try again.');
+        setAuthError(error.message || t('auth.login.failed'));
         setIsSigningIn(false);
         return;
       }
 
       if (!data.url) {
-        setAuthError('Discord login did not return a redirect URL. Please check the Supabase Discord provider setup.');
+        setAuthError(t('auth.login.noRedirect'));
         setIsSigningIn(false);
         return;
       }
@@ -57,7 +59,7 @@ export function LoginPage() {
 
       window.location.assign(data.url);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Discord login could not be started. Please try again.');
+      setAuthError(error instanceof Error ? error.message : t('auth.login.failed'));
       setIsSigningIn(false);
     }
   };
@@ -68,15 +70,15 @@ export function LoginPage() {
 
   return (
     <section className="panel hero-panel">
-      <p className="eyebrow">Authentication</p>
-      <h2>Log in with Discord</h2>
-      <p>Connect your Discord identity so Questboard can sync your display name and avatar.</p>
+      <p className="eyebrow">{t('auth.eyebrow')}</p>
+      <h2>{t('auth.login.title')}</h2>
+      <p>{t('auth.login.description')}</p>
       <button type="button" onClick={signInWithDiscord} disabled={isSigningIn}>
-        {isSigningIn ? 'Opening Discord…' : 'Login with Discord'}
+        {isSigningIn ? t('auth.login.opening') : t('auth.login.button')}
       </button>
       {authError && <p className="hint" role="alert">{authError}</p>}
       {!isConfigured && (
-        <p className="hint">Add Supabase values to your environment or GitHub Actions variables to enable login.</p>
+        <p className="hint">{t('auth.login.configureHint')}</p>
       )}
     </section>
   );

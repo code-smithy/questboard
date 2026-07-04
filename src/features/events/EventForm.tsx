@@ -1,8 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { listGroupCategories } from './eventApi';
-import type { EventCategory, EventFormInput, EventMode, EventStatus, EventVisibility } from './eventApi';
 import { listGroupLocations } from '../groups/groupApi';
 import type { GroupLocation, GroupSummary } from '../groups/groupApi';
+import { useLanguage } from '../i18n/LanguageContext';
+import { listGroupCategories } from './eventApi';
+import type { EventCategory, EventFormInput, EventMode, EventStatus, EventVisibility } from './eventApi';
 
 export type EventFormValues = Omit<EventFormInput, 'ownerId'>;
 
@@ -29,6 +30,7 @@ function toLocalInputValue(value?: string) {
 }
 
 export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel }: EventFormProps) {
+  const { t } = useLanguage();
   const [groupId, setGroupId] = useState(initialValues?.groupId ?? groups[0]?.id ?? '');
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [locations, setLocations] = useState<GroupLocation[]>([]);
@@ -73,12 +75,12 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
             : ''
         ));
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : 'Questboard could not load guild options.');
+        setErrorMessage(error instanceof Error ? error.message : t('form.loadOptionsError'));
       }
     };
 
     void loadGroupOptions();
-  }, [groupId]);
+  }, [groupId, t]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -87,23 +89,23 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
     const parsedMaximum = maximumAttendees ? Number(maximumAttendees) : null;
 
     if (!groupId) {
-      setErrorMessage('Choose a guild before posting a quest.');
+      setErrorMessage(t('form.chooseGuildError'));
       return;
     }
     if (!title.trim()) {
-      setErrorMessage('Give the quest a title.');
+      setErrorMessage(t('form.titleError'));
       return;
     }
     if (!Number.isInteger(parsedMinimum) || parsedMinimum < 0) {
-      setErrorMessage('Minimum attendees must be zero or more.');
+      setErrorMessage(t('form.minError'));
       return;
     }
     if (parsedMaximum !== null && (!Number.isInteger(parsedMaximum) || parsedMaximum < parsedMinimum)) {
-      setErrorMessage('Maximum attendees must be blank or at least the minimum attendee count.');
+      setErrorMessage(t('form.maxError'));
       return;
     }
     if (new Date(endAt) < new Date(startAt)) {
-      setErrorMessage('End time must be after the start time.');
+      setErrorMessage(t('form.endError'));
       return;
     }
 
@@ -134,102 +136,102 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
     <form className="form-card event-form" onSubmit={handleSubmit}>
       {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
       <label>
-        Guild
+        {t('form.guild')}
         <select value={groupId} onChange={(event) => setGroupId(event.target.value)} required>
           {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
         </select>
       </label>
       <label>
-        Category
+        {t('form.category')}
         <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-          <option value="">Uncategorized</option>
+          <option value="">{t('event.uncategorized')}</option>
           {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
         </select>
       </label>
       <label>
-        Title
+        {t('form.title')}
         <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} required />
       </label>
       <label>
-        Description
+        {t('form.description')}
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
       </label>
       <div className="inline-form two-up">
         <label>
-          Starts
+          {t('form.starts')}
           <input type="datetime-local" value={startAt} onChange={(event) => setStartAt(event.target.value)} required />
         </label>
         <label>
-          Ends
+          {t('form.ends')}
           <input type="datetime-local" value={endAt} onChange={(event) => setEndAt(event.target.value)} required />
         </label>
       </div>
       <label>
-        Timezone
+        {t('form.timezone')}
         <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
       </label>
       <div className="inline-form three-up">
         <label>
-          Mode
+          {t('form.mode')}
           <select value={mode} onChange={(event) => setMode(event.target.value as EventMode)}>
-            <option value="offline">Offline</option>
-            <option value="online">Online</option>
-            <option value="hybrid">Hybrid</option>
+            <option value="offline">{t('mode.offline')}</option>
+            <option value="online">{t('mode.online')}</option>
+            <option value="hybrid">{t('mode.hybrid')}</option>
           </select>
         </label>
         <label>
-          Visibility
+          {t('form.visibility')}
           <select value={visibility} onChange={(event) => setVisibility(event.target.value as EventVisibility)}>
-            <option value="private">Private</option>
-            <option value="public">Public</option>
+            <option value="private">{t('visibility.private')}</option>
+            <option value="public">{t('visibility.public')}</option>
           </select>
         </label>
         <label>
-          Status
+          {t('form.status')}
           <select value={status} onChange={(event) => setStatus(event.target.value as Exclude<EventStatus, 'archived'>)}>
-            <option value="draft">Draft</option>
-            <option value="open">Open</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="draft">{t('status.draft')}</option>
+            <option value="open">{t('status.open')}</option>
+            <option value="confirmed">{t('status.confirmed')}</option>
+            <option value="cancelled">{t('status.cancelled')}</option>
           </select>
         </label>
       </div>
       <label>
-        Saved location
+        {t('form.savedLocation')}
         <select value={locationId} onChange={(event) => setLocationId(event.target.value)}>
-          <option value="">One-off location</option>
+          <option value="">{t('form.oneOffLocation')}</option>
           {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
         </select>
       </label>
       <label>
-        Location notes
-        <input value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder="Room, parking, doorbell, or one-off address" />
+        {t('form.locationNotes')}
+        <input value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder={t('form.locationPlaceholder')} />
       </label>
       <div className="inline-form two-up">
         <label>
-          Online platform
-          <input value={onlinePlatform} onChange={(event) => setOnlinePlatform(event.target.value)} placeholder="Discord, Roll20, Steam" />
+          {t('form.onlinePlatform')}
+          <input value={onlinePlatform} onChange={(event) => setOnlinePlatform(event.target.value)} placeholder={t('form.onlinePlatformPlaceholder')} />
         </label>
         <label>
-          Online URL
+          {t('form.onlineUrl')}
           <input value={onlineUrl} onChange={(event) => setOnlineUrl(event.target.value)} placeholder="https://..." />
         </label>
       </div>
       <label>
-        Online instructions
+        {t('form.onlineInstructions')}
         <textarea value={onlineInstructions} onChange={(event) => setOnlineInstructions(event.target.value)} rows={3} />
       </label>
       <div className="inline-form two-up">
         <label>
-          Minimum attendees
+          {t('form.minAttendees')}
           <input type="number" min="0" step="1" value={minimumAttendees} onChange={(event) => setMinimumAttendees(event.target.value)} />
         </label>
         <label>
-          Maximum attendees
-          <input type="number" min="1" step="1" value={maximumAttendees} onChange={(event) => setMaximumAttendees(event.target.value)} placeholder="No limit" />
+          {t('form.maxAttendees')}
+          <input type="number" min="1" step="1" value={maximumAttendees} onChange={(event) => setMaximumAttendees(event.target.value)} placeholder={t('form.noLimit')} />
         </label>
       </div>
-      <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : submitLabel}</button>
+      <button type="submit" disabled={isSubmitting}>{isSubmitting ? t('form.saving') : submitLabel}</button>
     </form>
   );
 }

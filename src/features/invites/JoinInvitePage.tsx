@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { acceptGroupInvite } from '../groups/groupApi';
+import { useLanguage } from '../i18n/LanguageContext';
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error && error.message ? error.message : 'Questboard could not accept that invite.';
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export function JoinInvitePage() {
   const { inviteToken } = useParams();
   const navigate = useNavigate();
   const { isConfigured, isLoading, user } = useAuth();
+  const { t } = useLanguage();
   const [isAccepting, setIsAccepting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -24,7 +26,7 @@ export function JoinInvitePage() {
       await acceptGroupInvite(inviteToken);
       navigate('/groups', { replace: true, state: { inviteAccepted: true } });
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getErrorMessage(error, t('invite.acceptError')));
     } finally {
       setIsAccepting(false);
     }
@@ -37,11 +39,11 @@ export function JoinInvitePage() {
   if (!isConfigured) {
     return (
       <section className="panel hero-panel">
-        <p className="eyebrow">Invite</p>
-        <h2>Supabase setup required</h2>
-        <p>Questboard needs Supabase configuration before guild invite links can be accepted.</p>
+        <p className="eyebrow">{t('invite.eyebrow')}</p>
+        <h2>{t('invite.setupTitle')}</h2>
+        <p>{t('invite.setupBody')}</p>
         <Link className="login-link" to="/login">
-          Go to login
+          {t('invite.goLogin')}
         </Link>
       </section>
     );
@@ -50,9 +52,9 @@ export function JoinInvitePage() {
   if (isLoading) {
     return (
       <section className="panel hero-panel">
-        <p className="eyebrow">Invite</p>
-        <h2>Checking your adventurer papers...</h2>
-        <p>Questboard is confirming your Discord session before joining the guild.</p>
+        <p className="eyebrow">{t('invite.eyebrow')}</p>
+        <h2>{t('invite.checkingTitle')}</h2>
+        <p>{t('invite.checkingBody')}</p>
       </section>
     );
   }
@@ -60,11 +62,11 @@ export function JoinInvitePage() {
   if (!user) {
     return (
       <section className="panel hero-panel">
-        <p className="eyebrow">Invite</p>
-        <h2>Log in to join this guild</h2>
-        <p>Connect Discord first, then Questboard can add you as a guild member through this invite.</p>
+        <p className="eyebrow">{t('invite.eyebrow')}</p>
+        <h2>{t('invite.loginTitle')}</h2>
+        <p>{t('invite.loginBody')}</p>
         <Link className="login-link" to="/login" state={{ from: { pathname: `/join/${inviteToken}` } }}>
-          Login with Discord
+          {t('invite.loginButton')}
         </Link>
       </section>
     );
@@ -72,12 +74,12 @@ export function JoinInvitePage() {
 
   return (
     <section className="panel hero-panel">
-      <p className="eyebrow">Invite</p>
-      <h2>Join a guild</h2>
-      <p>Accept this reusable invite link to join the guild as a regular member.</p>
-      <p className="hint">Invite token: {inviteToken}</p>
+      <p className="eyebrow">{t('invite.eyebrow')}</p>
+      <h2>{t('invite.joinTitle')}</h2>
+      <p>{t('invite.joinBody')}</p>
+      <p className="hint">{t('invite.token', { token: inviteToken })}</p>
       <button type="button" onClick={handleAcceptInvite} disabled={isAccepting}>
-        {isAccepting ? 'Joining...' : 'Join guild'}
+        {isAccepting ? t('invite.joining') : t('invite.joinButton')}
       </button>
       {errorMessage && (
         <p className="error-text" role="alert">

@@ -1,13 +1,14 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { useLanguage } from '../i18n/LanguageContext';
 import {
+  archiveGroupLocation,
   createGroup,
   createGroupInvite,
   createGroupLocation,
-  archiveGroupLocation,
   deactivateGroupInvite,
-  listGroupLocations,
   listGroupInvites,
+  listGroupLocations,
   listUserGroups,
 } from './groupApi';
 import type { GroupInvite, GroupLocation, GroupSummary } from './groupApi';
@@ -21,11 +22,6 @@ function getInviteUrl(token: string) {
   return `${origin}${pathname}#/join/${token}`;
 }
 
-function formatLimit(invite: GroupInvite) {
-  if (!invite.max_uses) return 'Unlimited uses';
-  return `${invite.used_count}/${invite.max_uses} used`;
-}
-
 function getLocationMapHref(location: GroupLocation) {
   if (location.map_url) return location.map_url;
   if (location.latitude !== null && location.longitude !== null) return `geo:${location.latitude},${location.longitude}`;
@@ -35,6 +31,7 @@ function getLocationMapHref(location: GroupLocation) {
 
 export function GroupsPage() {
   const { user } = useAuth();
+  const { locale, t } = useLanguage();
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [invites, setInvites] = useState<GroupInvite[]>([]);
@@ -65,6 +62,11 @@ export function GroupsPage() {
   );
   const canManageInvites = selectedGroup?.role === 'group_admin';
 
+  const formatLimit = useCallback((invite: GroupInvite) => {
+    if (!invite.max_uses) return t('groups.unlimitedUses');
+    return t('groups.used', { used: invite.used_count, max: invite.max_uses });
+  }, [t]);
+
   const loadGroups = useCallback(async () => {
     if (!user) {
       setGroups([]);
@@ -84,11 +86,11 @@ export function GroupsPage() {
         return nextGroups[0]?.id ?? null;
       });
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, 'Questboard could not load your guilds.'));
+      setErrorMessage(getErrorMessage(error, t('groups.loadError')));
     } finally {
       setIsLoadingGroups(false);
     }
-  }, [user]);
+  }, [t, user]);
 
   useEffect(() => {
     void loadGroups();
@@ -106,14 +108,14 @@ export function GroupsPage() {
       try {
         setInvites(await listGroupInvites(selectedGroup.id));
       } catch (error) {
-        setErrorMessage(getErrorMessage(error, 'Questboard could not load invite links.'));
+        setErrorMessage(getErrorMessage(error, t('groups.inviteLoadError')));
       } finally {
         setIsLoadingInvites(false);
       }
     };
 
     void loadInvites();
-  }, [selectedGroup]);
+  }, [selectedGroup, t]);
 
   useEffect(() => {
     const loadLocations = async () => {
@@ -127,21 +129,21 @@ export function GroupsPage() {
       try {
         setLocations(await listGroupLocations(selectedGroup.id));
       } catch (error) {
-        setErrorMessage(getErrorMessage(error, 'Questboard could not load saved locations.'));
+        setErrorMessage(getErrorMessage(error, t('groups.locationLoadError')));
       } finally {
         setIsLoadingLocations(false);
       }
     };
 
     void loadLocations();
-  }, [selectedGroup]);
+  }, [selectedGroup, t]);
 
   const handleCreateGroup = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!user || isCreatingGroup) return;
     if (!name.trim()) {
-      setErrorMessage('Give the guild a name before creating it.');
+      setErrorMessage(t('groups.needName'));
       return;
     }
 
@@ -154,11 +156,11 @@ export function GroupsPage() {
       setName('');
       setDescription('');
       setTheme('');
-      setStatusMessage('Guild created. Default categories are ready.');
+      setStatusMessage(t('groups.created'));
       await loadGroups();
       setSelectedGroupId(createdGroup.id);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, 'Questboard could not create that guild.'));
+      setErrorMessage(getErrorMessage(error, t('groups.createError')));
     } finally {
       setIsCreatingGroup(false);
     }
@@ -171,7 +173,7 @@ export function GroupsPage() {
 
     const parsedMaxUses = maxUses ? Number(maxUses) : null;
     if (parsedMaxUses !== null && (!Number.isInteger(parsedMaxUses) || parsedMaxUses <= 0)) {
-      setErrorMessage('Maximum uses must be a positive whole number.');
+      setErrorMessage(t('groups.invalidInviteMax'));
       return;
     }
 
@@ -189,9 +191,9 @@ export function GroupsPage() {
       setInvites((currentInvites) => [invite, ...currentInvites]);
       setMaxUses('');
       setExpiresAt('');
-      setStatusMessage('Invite link created.');
+      setStatusMessage(t('groups.inviteCreated'));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, 'Questboard could not create that invite.'));
+      setErrorMessage(getErrorMessage(error, t('groups.inviteCreateError')));
     } finally {
       setIsCreatingInvite(false);
     }
@@ -206,9 +208,9 @@ export function GroupsPage() {
       setInvites((currentInvites) =>
         currentInvites.map((invite) => (invite.id === inviteId ? { ...invite, is_active: false } : invite)),
       );
-      setStatusMessage('Invite link disabled.');
+      setStatusMessage(t('groups.inviteDisabled'));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, 'Questboard could not disable that invite.'));
+      setErrorMessage(getErrorMessage(error, t('groups.inviteDisableError')));
     }
   };
 
@@ -217,14 +219,14 @@ export function GroupsPage() {
 
     if (!user || !selectedGroup || isCreatingLocation) return;
     if (!locationName.trim()) {
-      setErrorMessage('Give the location a name before saving it.');
+      setErrorMessage(t('groups.needLocationName'));
       return;
     }
 
     const parsedLatitude = locationLatitude ? Number(locationLatitude) : null;
     const parsedLongitude = locationLongitude ? Number(locationLongitude) : null;
     if ((parsedLatitude !== null && Number.isNaN(parsedLatitude)) || (parsedLongitude !== null && Number.isNaN(parsedLongitude))) {
-      setErrorMessage('Latitude and longitude must be valid numbers when provided.');
+      setErrorMessage(t('groups.invalidCoordinates'));
       return;
     }
 
@@ -250,9 +252,9 @@ export function GroupsPage() {
       setLocationLongitude('');
       setLocationMapUrl('');
       setLocationNotes('');
-      setStatusMessage('Location saved.');
+      setStatusMessage(t('groups.locationSaved'));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, 'Questboard could not save that location.'));
+      setErrorMessage(getErrorMessage(error, t('groups.locationSaveError')));
     } finally {
       setIsCreatingLocation(false);
     }
@@ -265,9 +267,9 @@ export function GroupsPage() {
     try {
       await archiveGroupLocation(locationId);
       setLocations((currentLocations) => currentLocations.filter((location) => location.id !== locationId));
-      setStatusMessage('Location archived.');
+      setStatusMessage(t('groups.locationArchived'));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, 'Questboard could not archive that location.'));
+      setErrorMessage(getErrorMessage(error, t('groups.locationArchiveError')));
     }
   };
 
@@ -275,10 +277,10 @@ export function GroupsPage() {
     <section className="panel">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Groups</p>
-          <h2>Your guilds</h2>
+          <p className="eyebrow">{t('groups.eyebrow')}</p>
+          <h2>{t('groups.title')}</h2>
         </div>
-        <p>Manage friend groups, reusable invite links, and the first shared calendar boundary for events.</p>
+        <p>{t('groups.description')}</p>
       </div>
 
       {statusMessage && <p className="status-message">{statusMessage}</p>}
@@ -290,34 +292,34 @@ export function GroupsPage() {
 
       <div className="two-column-layout">
         <form className="form-card" onSubmit={handleCreateGroup}>
-          <h3>Create guild</h3>
+          <h3>{t('groups.createTitle')}</h3>
           <label>
-            Guild name
+            {t('groups.name')}
             <input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required />
           </label>
           <label>
-            Description
+            {t('groups.descriptionLabel')}
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
           </label>
           <label>
-            Theme
+            {t('groups.theme')}
             <input
               value={theme}
               onChange={(event) => setTheme(event.target.value)}
-              placeholder="DnD, painting night, board games"
+              placeholder={t('groups.themePlaceholder')}
               maxLength={80}
             />
           </label>
           <button type="submit" disabled={isCreatingGroup}>
-            {isCreatingGroup ? 'Creating...' : 'Create guild'}
+            {isCreatingGroup ? t('groups.creating') : t('groups.createButton')}
           </button>
         </form>
 
         <div className="stack">
           <div>
-            <h3>Memberships</h3>
+            <h3>{t('groups.memberships')}</h3>
             {isLoadingGroups ? (
-              <p className="hint">Loading your guilds...</p>
+              <p className="hint">{t('groups.loading')}</p>
             ) : groups.length ? (
               <div className="item-list" role="list">
                 {groups.map((group) => (
@@ -328,21 +330,21 @@ export function GroupsPage() {
                     onClick={() => setSelectedGroupId(group.id)}
                   >
                     <span>{group.name}</span>
-                    <small>{group.role === 'group_admin' ? 'Admin' : 'Member'}</small>
+                    <small>{group.role === 'group_admin' ? t('groups.admin') : t('groups.member')}</small>
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="hint">Create a guild or join one through an invite link.</p>
+              <p className="hint">{t('groups.empty')}</p>
             )}
           </div>
 
           {selectedGroup && (
             <div className="detail-panel">
-              <p className="eyebrow">{selectedGroup.role === 'group_admin' ? 'Guild admin' : 'Guild member'}</p>
+              <p className="eyebrow">{selectedGroup.role === 'group_admin' ? t('groups.guildAdmin') : t('groups.guildMember')}</p>
               <h3>{selectedGroup.name}</h3>
-              <p>{selectedGroup.description || 'No description yet.'}</p>
-              {selectedGroup.theme && <p className="hint">Theme: {selectedGroup.theme}</p>}
+              <p>{selectedGroup.description || t('groups.noDescription')}</p>
+              {selectedGroup.theme && <p className="hint">{t('groups.themePrefix', { theme: selectedGroup.theme })}</p>}
             </div>
           )}
         </div>
@@ -352,46 +354,46 @@ export function GroupsPage() {
         <div className="invite-panel">
           <div className="section-heading compact">
             <div>
-              <p className="eyebrow">Locations</p>
-              <h3>Saved meetup spots</h3>
+              <p className="eyebrow">{t('groups.locations')}</p>
+              <h3>{t('groups.savedSpots')}</h3>
             </div>
-            <p className="hint">Store reusable addresses, map links, and venue notes for future quests.</p>
+            <p className="hint">{t('groups.locationsHint')}</p>
           </div>
 
           <form className="form-card location-form" onSubmit={handleCreateLocation}>
             <label>
-              Location name
+              {t('groups.locationName')}
               <input value={locationName} onChange={(event) => setLocationName(event.target.value)} maxLength={100} required />
             </label>
             <label>
-              Address
-              <input value={locationAddress} onChange={(event) => setLocationAddress(event.target.value)} placeholder="Street, city, room, or venue address" />
+              {t('groups.address')}
+              <input value={locationAddress} onChange={(event) => setLocationAddress(event.target.value)} placeholder={t('groups.addressPlaceholder')} />
             </label>
             <div className="inline-form two-up">
               <label>
-                Latitude
-                <input value={locationLatitude} onChange={(event) => setLocationLatitude(event.target.value)} placeholder="Optional" />
+                {t('groups.latitude')}
+                <input value={locationLatitude} onChange={(event) => setLocationLatitude(event.target.value)} placeholder={t('groups.optional')} />
               </label>
               <label>
-                Longitude
-                <input value={locationLongitude} onChange={(event) => setLocationLongitude(event.target.value)} placeholder="Optional" />
+                {t('groups.longitude')}
+                <input value={locationLongitude} onChange={(event) => setLocationLongitude(event.target.value)} placeholder={t('groups.optional')} />
               </label>
             </div>
             <label>
-              Map URL
+              {t('groups.mapUrl')}
               <input value={locationMapUrl} onChange={(event) => setLocationMapUrl(event.target.value)} placeholder="https://..." />
             </label>
             <label>
-              Notes
+              {t('groups.notes')}
               <textarea value={locationNotes} onChange={(event) => setLocationNotes(event.target.value)} rows={3} />
             </label>
             <button type="submit" disabled={isCreatingLocation}>
-              {isCreatingLocation ? 'Saving...' : 'Save location'}
+              {isCreatingLocation ? t('groups.saving') : t('groups.saveLocation')}
             </button>
           </form>
 
           {isLoadingLocations ? (
-            <p className="hint">Loading saved locations...</p>
+            <p className="hint">{t('groups.loadingLocations')}</p>
           ) : locations.length ? (
             <div className="location-list" role="list">
               {locations.map((location) => {
@@ -404,11 +406,11 @@ export function GroupsPage() {
                       <strong>{location.name}</strong>
                       {location.address && <p>{location.address}</p>}
                       {location.notes && <p className="hint">{location.notes}</p>}
-                      {mapHref && <a href={mapHref} target="_blank" rel="noreferrer">Open map link</a>}
+                      {mapHref && <a href={mapHref} target="_blank" rel="noreferrer">{t('groups.openMap')}</a>}
                     </div>
                     {canArchiveLocation && (
                       <button type="button" className="secondary-button" onClick={() => void handleArchiveLocation(location.id)}>
-                        Archive
+                        {t('groups.archive')}
                       </button>
                     )}
                   </article>
@@ -416,7 +418,7 @@ export function GroupsPage() {
               })}
             </div>
           ) : (
-            <p className="hint">Save a location to reuse it when creating events.</p>
+            <p className="hint">{t('groups.noLocations')}</p>
           )}
         </div>
       )}
@@ -425,52 +427,54 @@ export function GroupsPage() {
         <div className="invite-panel">
           <div className="section-heading compact">
             <div>
-              <p className="eyebrow">Invites</p>
-              <h3>Reusable invite links</h3>
+              <p className="eyebrow">{t('groups.invites')}</p>
+              <h3>{t('groups.inviteLinks')}</h3>
             </div>
-            {!canManageInvites && <p className="hint">Only guild admins can manage invite links.</p>}
+            {!canManageInvites && <p className="hint">{t('groups.adminOnly')}</p>}
           </div>
 
           {canManageInvites && (
             <form className="inline-form" onSubmit={handleCreateInvite}>
               <label>
-                Expires
+                {t('groups.expires')}
                 <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
               </label>
               <label>
-                Max uses
+                {t('groups.maxUses')}
                 <input
                   type="number"
                   min="1"
                   step="1"
                   value={maxUses}
                   onChange={(event) => setMaxUses(event.target.value)}
-                  placeholder="Unlimited"
+                  placeholder={t('groups.unlimited')}
                 />
               </label>
               <button type="submit" disabled={isCreatingInvite}>
-                {isCreatingInvite ? 'Creating...' : 'Create invite'}
+                {isCreatingInvite ? t('groups.creating') : t('groups.createInvite')}
               </button>
             </form>
           )}
 
           {isLoadingInvites ? (
-            <p className="hint">Loading invite links...</p>
+            <p className="hint">{t('groups.loadingInvites')}</p>
           ) : invites.length ? (
             <div className="invite-list" role="list">
               {invites.map((invite) => (
                 <article className="invite-card" key={invite.id}>
                   <div>
-                    <strong>{invite.is_active ? 'Active invite' : 'Disabled invite'}</strong>
+                    <strong>{invite.is_active ? t('groups.activeInvite') : t('groups.disabledInvite')}</strong>
                     <code>{getInviteUrl(invite.token)}</code>
                     <p className="hint">
                       {formatLimit(invite)}
-                      {invite.expires_at ? `, expires ${new Date(invite.expires_at).toLocaleString()}` : ', no expiry'}
+                      {invite.expires_at
+                        ? t('groups.expiresAt', { date: new Date(invite.expires_at).toLocaleString(locale) })
+                        : t('groups.noExpiry')}
                     </p>
                   </div>
                   {invite.is_active && (
                     <button type="button" className="secondary-button" onClick={() => void handleDeactivateInvite(invite.id)}>
-                      Disable
+                      {t('groups.disable')}
                     </button>
                   )}
                 </article>
@@ -478,7 +482,7 @@ export function GroupsPage() {
             </div>
           ) : (
             <p className="hint">
-              {canManageInvites ? 'Create an invite to let friends join this guild.' : 'No invite links are visible here.'}
+              {canManageInvites ? t('groups.noInvitesAdmin') : t('groups.noInvitesMember')}
             </p>
           )}
         </div>

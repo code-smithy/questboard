@@ -1,30 +1,45 @@
 import { useAuth } from '../auth/AuthContext';
+import { languageOptions, useLanguage } from '../i18n/LanguageContext';
+import type { Language } from '../i18n/LanguageContext';
 
 export function ProfilePage() {
   const { profile, user } = useAuth();
+  const { language, locale, setLanguage, t } = useLanguage();
 
   return (
     <section className="panel profile-card">
-      <p className="eyebrow">Profile</p>
-      <h2>Your adventurer profile</h2>
-      <p>Discord profile details, notification preferences, timezone preferences, and theme settings will live here.</p>
+      <p className="eyebrow">{t('profile.eyebrow')}</p>
+      <h2>{t('profile.title')}</h2>
+      <p>{t('profile.description')}</p>
+
+      <label className="language-select">
+        {t('profile.languageLabel')}
+        <select value={language} onChange={(event) => setLanguage(event.target.value as Language)}>
+          {languageOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <span className="hint">{t('profile.languageHint')}</span>
+      </label>
 
       <dl className="details-list">
         <div>
-          <dt>Display name</dt>
-          <dd>{profile?.display_name ?? 'Not synced yet'}</dd>
+          <dt>{t('profile.displayName')}</dt>
+          <dd>{profile?.display_name ?? t('profile.notSynced')}</dd>
         </div>
         <div>
-          <dt>Email</dt>
-          <dd>{user?.email ?? 'Discord account email unavailable'}</dd>
+          <dt>{t('profile.email')}</dt>
+          <dd>{user?.email ?? t('profile.emailUnavailable')}</dd>
         </div>
         <div>
-          <dt>Discord user ID</dt>
-          <dd>{profile?.discord_user_id ?? 'Not provided'}</dd>
+          <dt>{t('profile.discordUserId')}</dt>
+          <dd>{profile?.discord_user_id ?? t('profile.notProvided')}</dd>
         </div>
         <div>
-          <dt>Last seen</dt>
-          <dd>{profile?.last_seen_at ? new Date(profile.last_seen_at).toLocaleString() : 'Not recorded yet'}</dd>
+          <dt>{t('profile.lastSeen')}</dt>
+          <dd>{profile?.last_seen_at ? new Date(profile.last_seen_at).toLocaleString(locale) : t('profile.notRecorded')}</dd>
         </div>
       </dl>
     </section>
