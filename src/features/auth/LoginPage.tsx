@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { getAuthRedirectUrl } from './authRedirect';
+import { saveAuthReturnTo } from './authReturnTo';
 import { getInvalidDiscordClientIdMessage } from './discordOAuth';
 import { useAuth } from './AuthContext';
 
@@ -25,6 +26,8 @@ export function LoginPage() {
     setAuthError(null);
 
     try {
+      saveAuthReturnTo(redirectTo);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'discord',
         options: {
