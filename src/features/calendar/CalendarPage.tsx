@@ -8,6 +8,8 @@ import { formatAttendanceLabel, useLanguage } from '../i18n/LanguageContext';
 import { getCalendarReadModel } from './calendarApi';
 import type { CalendarEvent, CalendarEventMode } from './calendarApi';
 
+type CalendarView = 'list' | 'month';
+
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -29,9 +31,67 @@ function getMonthKey(value: string | Date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function getLocalMonthKey(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function getMonthLabel(monthKey: string, locale: string) {
   const [year, month] = monthKey.split('-').map(Number);
   return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function getEventDayKey(event: CalendarEvent) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: event.timezone || undefined,
+    year: 'numeric',
+  }).formatToParts(new Date(event.start_at));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getDayKey(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function getCalendarDayCells(monthKey: string) {
+  const [year, month] = monthKey.split('-').map(Number);
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 0));
+  const firstDayOffset = (monthStart.getUTCDay() + 6) % 7;
+  const daysInMonth = monthEnd.getUTCDate();
+  const totalCells = Math.ceil((firstDayOffset + daysInMonth) / 7) * 7;
+  const gridStart = new Date(monthStart);
+  gridStart.setUTCDate(monthStart.getUTCDate() - firstDayOffset);
+
+  return Array.from({ length: totalCells }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setUTCDate(gridStart.getUTCDate() + index);
+    return {
+      date,
+      dayNumber: date.getUTCDate(),
+      isCurrentMonth: date.getUTCMonth() === month - 1,
+      key: getDayKey(date),
+    };
+  });
+}
+
+function getWeekdayLabels(locale: string) {
+  const monday = new Date(Date.UTC(2026, 0, 5));
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(monday);
+    date.setUTCDate(monday.getUTCDate() + index);
+    return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', weekday: 'short' }).format(date);
+  });
+}
+
+function getTimeLabel(event: CalendarEvent, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: event.timezone || undefined,
+  }).format(new Date(event.start_at));
 }
 
 function formatReminderDate(reminder: DueReminder, locale: string, unknownTimeLabel: string) {
@@ -71,6 +131,8 @@ export function CalendarPage() {
   const [selectedGroupId, setSelectedGroupId] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedMode, setSelectedMode] = useState<'all' | CalendarEventMode>('all');
+  const [selectedView, setSelectedView] = useState<CalendarView>('list');
+  const [focusedMonth, setFocusedMonth] = useState(() => getLocalMonthKey(new Date()));
   const [isLoading, setIsLoading] = useState(true);
   const [savingRsvpEventId, setSavingRsvpEventId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -167,6 +229,23 @@ export function CalendarPage() {
   }, {}), [filteredEvents]);
 
   const monthKeys = Object.keys(eventsByMonth).sort();
+  const weekdayLabels = useMemo(() => getWeekdayLabels(locale), [locale]);
+  const calendarDayCells = useMemo(() => getCalendarDayCells(focusedMonth), [focusedMonth]);
+  const calendarEventsByDay = useMemo(() => filteredEvents.reduce<Record<string, CalendarEvent[]>>((days, event) => {
+    const dayKey = getEventDayKey(event);
+    days[dayKey] = [...(days[dayKey] ?? []), event];
+    return days;
+  }, {}), [filteredEvents]);
+
+  const showPreviousMonth = () => {
+    const [year, month] = focusedMonth.split('-').map(Number);
+    setFocusedMonth(getMonthKey(new Date(Date.UTC(year, month - 2, 1))));
+  };
+
+  const showNextMonth = () => {
+    const [year, month] = focusedMonth.split('-').map(Number);
+    setFocusedMonth(getMonthKey(new Date(Date.UTC(year, month, 1))));
+  };
 
   return (
     <section className="panel calendar-panel">
@@ -226,6 +305,40 @@ export function CalendarPage() {
         </label>
       </div>
 
+      <div className="calendar-view-bar" aria-label={t('calendar.viewLabel')}>
+        <div className="view-tabs" role="tablist" aria-label={t('calendar.viewLabel')}>
+          <button
+            type="button"
+            aria-selected={selectedView === 'list'}
+            className={selectedView === 'list' ? 'is-selected' : undefined}
+            role="tab"
+            onClick={() => setSelectedView('list')}
+          >
+            {t('calendar.listView')}
+          </button>
+          <button
+            type="button"
+            aria-selected={selectedView === 'month'}
+            className={selectedView === 'month' ? 'is-selected' : undefined}
+            role="tab"
+            onClick={() => setSelectedView('month')}
+          >
+            {t('calendar.monthView')}
+          </button>
+        </div>
+        {selectedView === 'month' && (
+          <div className="month-nav">
+            <button type="button" className="secondary-button icon-button" aria-label={t('calendar.previousMonth')} onClick={showPreviousMonth}>
+              &lt;
+            </button>
+            <h3>{getMonthLabel(focusedMonth, locale)}</h3>
+            <button type="button" className="secondary-button icon-button" aria-label={t('calendar.nextMonth')} onClick={showNextMonth}>
+              &gt;
+            </button>
+          </div>
+        )}
+      </div>
+
       {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
       {isLoading ? (
         <p className="hint">{t('calendar.loading')}</p>
@@ -233,6 +346,50 @@ export function CalendarPage() {
         <p className="hint">{t('calendar.noGroups')}</p>
       ) : !filteredEvents.length ? (
         <p className="hint">{t('calendar.noMatches')}</p>
+      ) : selectedView === 'month' ? (
+        <div className="month-grid" role="grid" aria-label={getMonthLabel(focusedMonth, locale)}>
+          {weekdayLabels.map((weekday) => (
+            <div className="month-grid-weekday" role="columnheader" key={weekday}>
+              {weekday}
+            </div>
+          ))}
+          {calendarDayCells.map((day) => {
+            const dayEvents = day.isCurrentMonth
+              ? [...(calendarEventsByDay[day.key] ?? [])].sort((firstEvent, secondEvent) =>
+                new Date(firstEvent.start_at).getTime() - new Date(secondEvent.start_at).getTime(),
+              )
+              : [];
+            const visibleEvents = dayEvents.slice(0, 3);
+            const hiddenEventCount = dayEvents.length - visibleEvents.length;
+
+            return (
+              <div className="month-grid-day" data-outside-month={!day.isCurrentMonth || undefined} key={day.key} role="gridcell">
+                <span className="month-grid-date">{day.dayNumber}</span>
+                <div className="month-grid-events">
+                  {visibleEvents.map((event) => (
+                    <Link
+                      className="month-event-link"
+                      data-status={event.status}
+                      key={event.id}
+                      aria-label={`${getTimeLabel(event, locale)} ${event.title}`}
+                      style={getCategoryStyle(event.category?.color)}
+                      title={`${getTimeLabel(event, locale)} ${event.title}`}
+                      to={`/events/${event.id}`}
+                    >
+                      <span>{getTimeLabel(event, locale)}</span>
+                      <strong>{event.title}</strong>
+                    </Link>
+                  ))}
+                  {hiddenEventCount > 0 && (
+                    <span className="month-more-events">
+                      {t('calendar.moreQuests', { count: hiddenEventCount })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="calendar-months">
           {monthKeys.map((monthKey) => (

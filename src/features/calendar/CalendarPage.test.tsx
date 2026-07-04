@@ -118,6 +118,26 @@ describe('CalendarPage', () => {
     expect(listDueInAppReminders).toHaveBeenCalledWith('user-1');
   });
 
+  it('shows a navigable month calendar view with compact quest links', async () => {
+    renderCalendar();
+
+    await screen.findByText('Board game night');
+    fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
+
+    expect(screen.getByRole('grid', { name: 'July 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Mon' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /18:00 Board game night/i })).toHaveAttribute('href', '/events/event-1');
+    expect(screen.queryByText('Mini painting hangout')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+
+    expect(screen.getByRole('grid', { name: 'August 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /19:00 Mini painting hangout/i })).toHaveAttribute('href', '/events/event-2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+    expect(screen.getByRole('grid', { name: 'July 2026' })).toBeInTheDocument();
+  });
+
   it('marks agenda cards with status and category colors', async () => {
     renderCalendar();
 
