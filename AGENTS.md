@@ -12,6 +12,7 @@ Before committing any code change:
 2. If `dist/` appears, remove it from the commit (`git rm -r --cached dist` if tracked, or `rm -rf dist` if untracked) unless the user explicitly asked for a branch-source fallback build.
 3. Run `npm run verify:no-committed-build`.
 4. Never use `git add -f dist` unless the user explicitly provides production Supabase values and asks for a committed fallback build.
+
 ## GitHub Pages deployment guardrails
 
 GitHub Pages must serve the GitHub Actions artifact built from `dist/`, not the repository branch source. A broken Pages setting can serve the raw root `index.html`, causing the live site to request `/src/main.tsx` or expose `%BASE_URL%` instead of loading the built Vite bundle.
@@ -19,7 +20,7 @@ GitHub Pages must serve the GitHub Actions artifact built from `dist/`, not the 
 When touching `.github/workflows/deploy-pages.yml`, `docs/github-pages.md`, `index.html`, Vite config, or deployment-related scripts:
 
 1. Preserve the Actions artifact deployment path (`actions/configure-pages`, `actions/upload-pages-artifact`, and `actions/deploy-pages`).
-2. Preserve an explicit guard that attempts to set Pages `build_type` to `workflow` before deployment, and keep the documented manual fallback: **Settings → Pages → Build and deployment → Source = GitHub Actions** if GitHub rejects token-based automation.
+2. Preserve a fail-fast guard that verifies Pages `build_type` is `workflow` before deployment. Do not allow the workflow to continue to upload/deploy if GitHub rejects the settings update; instead direct maintainers to **Settings → Pages → Build and deployment → Source = GitHub Actions** or a `PAGES_ADMIN_TOKEN` secret with permission to manage Pages settings.
 3. Preserve the live deployment check for raw source markers (`%BASE_URL%` and `/src/main.tsx`). Do not weaken this check to accept a branch-source deployment.
 4. Treat live deployment failures that still serve raw source as a repository Pages settings issue, not as a Supabase, Discord OAuth, React Router, or Vite application bug.
 
