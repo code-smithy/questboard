@@ -118,6 +118,19 @@ describe('CalendarPage', () => {
     expect(listDueInAppReminders).toHaveBeenCalledWith('user-1');
   });
 
+  it('marks agenda cards with status and category colors', async () => {
+    renderCalendar();
+
+    const confirmedTitle = await screen.findByText('Mini painting hangout');
+    const confirmedCard = confirmedTitle.closest('article');
+
+    expect(confirmedCard).not.toBeNull();
+    expect(confirmedCard).toHaveAttribute('data-status', 'confirmed');
+    expect(confirmedCard).toHaveStyle('--event-category-color: #77ddaa');
+    expect(within(confirmedCard as HTMLElement).getByText('Confirmed')).toBeInTheDocument();
+    expect(within(confirmedCard as HTMLElement).getByText('Mini Painting')).toBeInTheDocument();
+  });
+
   it('filters events by guild, category, and mode', async () => {
     renderCalendar();
 
@@ -139,7 +152,8 @@ describe('CalendarPage', () => {
 
     const eventLink = await screen.findByRole('link', { name: /board game night/i });
     expect(eventLink).toHaveAttribute('href', '/events/event-1');
-    expect(within(eventLink).getByText(/Board Games - Offline - private/i)).toBeInTheDocument();
+    expect(within(eventLink).getByText('Board Games')).toBeInTheDocument();
+    expect(within(eventLink).getByText(/Offline - private/i)).toBeInTheDocument();
   });
 
   it('lets users update their RSVP from the calendar overview', async () => {

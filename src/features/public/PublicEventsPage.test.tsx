@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
@@ -90,12 +90,30 @@ describe('PublicEventsPage', () => {
     renderPublicEvents();
 
     expect(await screen.findByRole('heading', { name: 'July 2026' })).toBeInTheDocument();
-    expect(screen.getByText('Open painting night')).toBeInTheDocument();
-    expect(screen.getByText(/Painting Crew - Mini Painting - Offline/i)).toBeInTheDocument();
+    const openTitle = screen.getByText('Open painting night');
+    const openCard = openTitle.closest('article');
+    expect(openCard).not.toBeNull();
+    expect(openTitle).toBeInTheDocument();
+    expect(within(openCard as HTMLElement).getByText(/Painting Crew/i)).toBeInTheDocument();
+    expect(within(openCard as HTMLElement).getByText('Mini Painting')).toBeInTheDocument();
+    expect(within(openCard as HTMLElement).getByText(/Offline/i)).toBeInTheDocument();
     expect(screen.getByText(/2\/6 seats - Needs 1 more/i)).toBeInTheDocument();
     expect(screen.getByText('Bring a miniature and paints.')).toBeInTheDocument();
     expect(screen.getByText(/Location: Community hall/i)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /open painting night/i })).not.toBeInTheDocument();
+  });
+
+  it('marks public cards with status and category colors', async () => {
+    renderPublicEvents();
+
+    const confirmedTitle = await screen.findByText('Discord board games');
+    const confirmedCard = confirmedTitle.closest('article');
+
+    expect(confirmedCard).not.toBeNull();
+    expect(confirmedCard).toHaveAttribute('data-status', 'confirmed');
+    expect(confirmedCard).toHaveStyle('--event-category-color: #f0b35a');
+    expect(within(confirmedCard as HTMLElement).getByText('Confirmed')).toBeInTheDocument();
+    expect(within(confirmedCard as HTMLElement).getByText('Board Games')).toBeInTheDocument();
   });
 
   it('filters public events by mode', async () => {

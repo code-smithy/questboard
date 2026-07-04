@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -9,6 +10,10 @@ import type { CalendarEvent, CalendarEventMode } from './calendarApi';
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function getCategoryStyle(color: string | null | undefined): CSSProperties {
+  return color ? ({ '--event-category-color': color } as CSSProperties) : {};
 }
 
 function formatEventDate(event: CalendarEvent, locale: string) {
@@ -248,14 +253,23 @@ export function CalendarPage() {
                   return (
                       <article
                         className="event-card"
+                        data-status={event.status}
                         key={event.id}
-                        style={{ borderLeftColor: event.category?.color ?? undefined }}
+                        style={getCategoryStyle(event.category?.color)}
                       >
                         <Link className="event-card-link" to={`/events/${event.id}`}>
-                          <span className="event-date">{formatEventDate(event, locale)}</span>
+                          <span className="event-card-topline">
+                            <span className="event-date">{formatEventDate(event, locale)}</span>
+                            <span className="event-status-badge" data-status={event.status}>{t(`status.${event.status}`)}</span>
+                          </span>
                           <span className="event-title">{event.title}</span>
                           <span className="event-meta">
-                            {event.category?.name ?? t('event.uncategorized')} - {t(`mode.${event.mode}`)} - {t(`visibility.${event.visibility}`)}
+                            <span className="event-category-label">
+                              <span className="event-category-swatch" aria-hidden="true" />
+                              {event.category?.name ?? t('event.uncategorized')}
+                            </span>
+                            {' - '}
+                            {t(`mode.${event.mode}`)} - {t(`visibility.${event.visibility}`)}
                           </span>
                           <span className="event-attendance">
                             {formatAttendanceLabel(t, { ...attendance, maximumAttendees: event.maximum_attendees, status: event.status })}

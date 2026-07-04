@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -8,6 +9,10 @@ import type { PublicEventCard } from './publicEventsApi';
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function getCategoryStyle(color: string | null | undefined): CSSProperties {
+  return color ? ({ '--event-category-color': color } as CSSProperties) : {};
 }
 
 function formatEventDate(event: PublicEventCard, locale: string) {
@@ -137,13 +142,23 @@ export function PublicEventsPage() {
                   return (
                     <article
                       className="event-card public-event-card"
+                      data-status={event.status}
                       key={event.id}
-                      style={{ borderLeftColor: event.category_color ?? undefined }}
+                      style={getCategoryStyle(event.category_color)}
                     >
-                      <span className="event-date">{formatEventDate(event, locale)}</span>
+                      <span className="event-card-topline">
+                        <span className="event-date">{formatEventDate(event, locale)}</span>
+                        <span className="event-status-badge" data-status={event.status}>{t(`status.${event.status}`)}</span>
+                      </span>
                       <span className="event-title">{event.title}</span>
                       <span className="event-meta">
-                        {event.group_name} - {event.category_name ?? t('event.uncategorized')} - {t(`mode.${event.mode}`)}
+                        {event.group_name} -{' '}
+                        <span className="event-category-label">
+                          <span className="event-category-swatch" aria-hidden="true" />
+                          {event.category_name ?? t('event.uncategorized')}
+                        </span>
+                        {' - '}
+                        {t(`mode.${event.mode}`)}
                       </span>
                       <span className="event-attendance">{attendanceLabel}</span>
                       {event.description && <span className="event-description">{event.description}</span>}
