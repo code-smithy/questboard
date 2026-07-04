@@ -2,9 +2,10 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { dismissInAppReminder, getAttendanceSummary, listDueInAppReminders, recordEventHistory, setEventRsvp } from '../events/eventApi';
+import { getAttendanceSummary, recordEventHistory, setEventRsvp } from '../events/eventApi';
 import type { DueReminder, EventRsvpStatus } from '../events/eventApi';
 import { formatAttendanceLabel, useLanguage } from '../i18n/LanguageContext';
+import { useReminders } from '../reminders/ReminderContext';
 import { getCalendarReadModel } from './calendarApi';
 import type { CalendarEvent, CalendarEventMode } from './calendarApi';
 
@@ -125,8 +126,8 @@ function updateEventRsvp(events: CalendarEvent[], eventId: string, userId: strin
 export function CalendarPage() {
   const { user } = useAuth();
   const { locale, t } = useLanguage();
+  const { dismissReminder, dueReminders } = useReminders();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [dueReminders, setDueReminders] = useState<DueReminder[]>([]);
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -144,7 +145,6 @@ export function CalendarPage() {
       if (!user) {
         setGroups([]);
         setEvents([]);
-        setDueReminders([]);
         setIsLoading(false);
         return;
       }
@@ -153,11 +153,10 @@ export function CalendarPage() {
       setErrorMessage(null);
 
       try {
-        const [readModel, reminders] = await Promise.all([getCalendarReadModel(user.id), listDueInAppReminders(user.id)]);
+        const readModel = await getCalendarReadModel(user.id);
         if (!isMounted) return;
         setGroups(readModel.groups.map((group) => ({ id: group.id, name: group.name })));
         setEvents(readModel.events);
-        setDueReminders(reminders);
       } catch (error) {
         if (isMounted) setErrorMessage(getErrorMessage(error, t('calendar.loadError')));
       } finally {
@@ -176,8 +175,7 @@ export function CalendarPage() {
     setErrorMessage(null);
 
     try {
-      await dismissInAppReminder(reminderId);
-      setDueReminders((currentReminders) => currentReminders.filter((reminder) => reminder.id !== reminderId));
+      await dismissReminder(reminderId);
     } catch (error) {
       setErrorMessage(getErrorMessage(error, t('calendar.loadError')));
     }

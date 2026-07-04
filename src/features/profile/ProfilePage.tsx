@@ -1,10 +1,12 @@
 import { useAuth } from '../auth/AuthContext';
 import { languageOptions, useLanguage } from '../i18n/LanguageContext';
 import type { Language } from '../i18n/LanguageContext';
+import { useReminders } from '../reminders/ReminderContext';
 
 export function ProfilePage() {
   const { profile, user } = useAuth();
   const { language, locale, setLanguage, t } = useLanguage();
+  const { browserNotificationsEnabled, notificationPermission, setBrowserNotificationsEnabled } = useReminders();
 
   return (
     <section className="panel profile-card">
@@ -22,6 +24,25 @@ export function ProfilePage() {
           ))}
         </select>
         <span className="hint">{t('profile.languageHint')}</span>
+      </label>
+
+      <label className="notification-toggle">
+        <span className="checkbox-line">
+          <input
+            type="checkbox"
+            checked={browserNotificationsEnabled}
+            disabled={notificationPermission === 'unsupported'}
+            onChange={(event) => void setBrowserNotificationsEnabled(event.target.checked)}
+          />
+          <span>{t('profile.browserNotificationsLabel')}</span>
+        </span>
+        <span className="hint">
+          {notificationPermission === 'unsupported'
+            ? t('profile.browserNotificationsUnsupported')
+            : notificationPermission === 'denied'
+              ? t('profile.browserNotificationsDenied')
+              : t('profile.browserNotificationsHint')}
+        </span>
       </label>
 
       <dl className="details-list">

@@ -5,6 +5,7 @@ import { router } from './app/routes';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider } from './features/auth/AuthProvider';
 import { LanguageProvider } from './features/i18n/LanguageContext';
+import { ReminderProvider } from './features/reminders/ReminderContext';
 import './styles/global.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -12,7 +13,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <LanguageProvider>
         <AuthProvider>
-          <RouterProvider router={router} />
+          <ReminderProvider>
+            <RouterProvider router={router} />
+          </ReminderProvider>
         </AuthProvider>
       </LanguageProvider>
     </ErrorBoundary>

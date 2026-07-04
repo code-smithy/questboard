@@ -1,17 +1,20 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
+import type { DueReminder } from '../events/eventApi';
+import { ReminderContext } from '../reminders/ReminderContext';
 import { CalendarPage } from './CalendarPage';
 
 const { getCalendarReadModel } = vi.hoisted(() => ({
   getCalendarReadModel: vi.fn(),
 }));
 
-const { dismissInAppReminder, listDueInAppReminders, recordEventHistory, setEventRsvp } = vi.hoisted(() => ({
+const { dismissInAppReminder, recordEventHistory, setEventRsvp } = vi.hoisted(() => ({
   dismissInAppReminder: vi.fn(),
-  listDueInAppReminders: vi.fn(),
   recordEventHistory: vi.fn(),
   setEventRsvp: vi.fn(),
 }));
@@ -23,7 +26,6 @@ vi.mock('./calendarApi', () => ({
 vi.mock('../events/eventApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../events/eventApi')>()),
   dismissInAppReminder,
-  listDueInAppReminders,
   recordEventHistory,
   setEventRsvp,
 }));
@@ -79,15 +81,39 @@ const readModel = {
   ],
 };
 
-function renderCalendar(authState: Partial<AuthState> = {}) {
+function TestReminderProvider({ children, initialReminders = [] }: { children: ReactNode; initialReminders?: DueReminder[] }) {
+  const [dueReminders, setDueReminders] = useState(initialReminders);
+
+  return (
+    <ReminderContext.Provider
+      value={{
+        browserNotificationsEnabled: false,
+        dueReminders,
+        dismissReminder: async (reminderId) => {
+          await dismissInAppReminder(reminderId);
+          setDueReminders((currentReminders) => currentReminders.filter((reminder) => reminder.id !== reminderId));
+        },
+        notificationPermission: 'unsupported',
+        refreshDueReminders: async () => undefined,
+        setBrowserNotificationsEnabled: async () => undefined,
+      }}
+    >
+      {children}
+    </ReminderContext.Provider>
+  );
+}
+
+function renderCalendar(authState: Partial<AuthState> = {}, reminders: DueReminder[] = []) {
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
-      <MemoryRouter initialEntries={['/calendar']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Routes>
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/events/:eventId" element={<h1>Event detail route</h1>} />
-        </Routes>
-      </MemoryRouter>
+      <TestReminderProvider initialReminders={reminders}>
+        <MemoryRouter initialEntries={['/calendar']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/events/:eventId" element={<h1>Event detail route</h1>} />
+          </Routes>
+        </MemoryRouter>
+      </TestReminderProvider>
     </AuthContext.Provider>,
   );
 }
@@ -96,12 +122,10 @@ describe('CalendarPage', () => {
   beforeEach(() => {
     dismissInAppReminder.mockReset();
     getCalendarReadModel.mockReset();
-    listDueInAppReminders.mockReset();
     recordEventHistory.mockReset();
     setEventRsvp.mockReset();
     dismissInAppReminder.mockResolvedValue(undefined);
     getCalendarReadModel.mockResolvedValue(readModel);
-    listDueInAppReminders.mockResolvedValue([]);
     recordEventHistory.mockResolvedValue(undefined);
     setEventRsvp.mockResolvedValue(undefined);
   });
@@ -115,7 +139,6 @@ describe('CalendarPage', () => {
     expect(screen.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument();
     expect(screen.getByText('Mini painting hangout')).toBeInTheDocument();
     expect(getCalendarReadModel).toHaveBeenCalledWith('user-1');
-    expect(listDueInAppReminders).toHaveBeenCalledWith('user-1');
   });
 
   it('shows a navigable month calendar view with compact quest links', async () => {
@@ -201,7 +224,7 @@ describe('CalendarPage', () => {
   });
 
   it('shows and dismisses due in-app reminders', async () => {
-    listDueInAppReminders.mockResolvedValue([
+    const reminders: DueReminder[] = [
       {
         id: 'reminder-1',
         event_id: 'event-1',
@@ -217,9 +240,9 @@ describe('CalendarPage', () => {
           timezone: 'UTC',
         },
       },
-    ]);
+    ];
 
-    renderCalendar();
+    renderCalendar({}, reminders);
 
     expect(await screen.findByRole('heading', { name: 'Due now' })).toBeInTheDocument();
     expect(screen.getAllByText('Board game night')).toHaveLength(2);
