@@ -103,6 +103,27 @@ describe('PublicEventsPage', () => {
     expect(screen.queryByRole('link', { name: /open painting night/i })).not.toBeInTheDocument();
   });
 
+  it('shows a navigable public month calendar with compact quest entries', async () => {
+    renderPublicEvents();
+
+    await screen.findByText('Open painting night');
+    fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
+
+    expect(screen.getByRole('grid', { name: 'July 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Mon' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /18:00 Open painting night/i })).toBeInTheDocument();
+    expect(screen.queryByText('Discord board games')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /open painting night/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+
+    expect(screen.getByRole('grid', { name: 'August 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /19:00 Discord board games/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+    expect(screen.getByRole('grid', { name: 'July 2026' })).toBeInTheDocument();
+  });
+
   it('marks public cards with status and category colors', async () => {
     renderPublicEvents();
 

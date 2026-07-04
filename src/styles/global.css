@@ -530,7 +530,8 @@ nav a:hover {
   margin-top: 0.35rem;
 }
 
-.month-event-link {
+.month-event-link,
+.month-event-chip {
   --event-category-color: #f0b35a;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -551,20 +552,23 @@ nav a:hover {
   background: rgba(240, 179, 90, 0.12);
 }
 
-.month-event-link span {
+.month-event-link span,
+.month-event-chip span {
   color: #f0b35a;
   font-size: 0.68rem;
   font-weight: 800;
 }
 
-.month-event-link strong {
+.month-event-link strong,
+.month-event-chip strong {
   overflow: hidden;
   font-size: 0.76rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.month-event-link[data-status="cancelled"] strong {
+.month-event-link[data-status="cancelled"] strong,
+.month-event-chip[data-status="cancelled"] strong {
   color: #fecaca;
   text-decoration: line-through;
 }
