@@ -402,7 +402,7 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
           status,
           created_at,
           reviewed_at,
-          profiles (
+          profiles!event_join_requests_requester_id_fkey (
             display_name,
             avatar_url
           )

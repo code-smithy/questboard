@@ -136,6 +136,7 @@ describe('groupApi', () => {
 
     expect(from).toHaveBeenCalledWith('event_join_requests');
     expect(builders.event_join_requests.select).toHaveBeenCalledWith(expect.stringContaining('events!inner'));
+    expect(builders.event_join_requests.select).toHaveBeenCalledWith(expect.stringContaining('profiles!event_join_requests_requester_id_fkey'));
     expect(builders.event_join_requests.eq).toHaveBeenCalledWith('status', 'pending');
     expect(builders.event_join_requests.eq).toHaveBeenCalledWith('events.group_id', 'group-1');
     expect(builders.event_join_requests.order).toHaveBeenCalledWith('created_at', { ascending: true });

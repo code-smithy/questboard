@@ -269,7 +269,7 @@ export async function listPendingEventJoinRequests(groupId: string): Promise<Eve
           timezone,
           group_id
         ),
-        profiles (
+        profiles!event_join_requests_requester_id_fkey (
           display_name,
           avatar_url
         )
