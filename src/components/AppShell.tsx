@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
 
 const navItems = [
+  { to: '/public', label: 'Public Board' },
   { to: '/calendar', label: 'Calendar' },
   { to: '/groups', label: 'Guilds' },
   { to: '/events/new', label: 'Post Quest' },

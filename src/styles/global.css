@@ -423,9 +423,15 @@ nav a:hover {
 
 .event-date,
 .event-meta,
-.event-attendance {
+.event-attendance,
+.event-description {
   color: #bfae95;
   font-size: 0.9rem;
+}
+
+.event-description {
+  color: #d9c6a8;
+  line-height: 1.55;
 }
 
 .event-title {
@@ -436,6 +442,25 @@ nav a:hover {
 
 @media (max-width: 720px) {
   .filter-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.public-filter-bar {
+  grid-template-columns: minmax(10rem, 16rem);
+}
+
+.public-event-card {
+  cursor: default;
+}
+
+.public-event-card a {
+  color: #f0b35a;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .public-filter-bar {
     grid-template-columns: 1fr;
   }
 }

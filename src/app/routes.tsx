@@ -10,6 +10,7 @@ import { NewEventPage } from '../features/events/NewEventPage';
 import { GroupsPage } from '../features/groups/GroupsPage';
 import { JoinInvitePage } from '../features/invites/JoinInvitePage';
 import { ProfilePage } from '../features/profile/ProfilePage';
+import { PublicEventsPage } from '../features/public/PublicEventsPage';
 
 export const router = createHashRouter([
   {
@@ -20,6 +21,7 @@ export const router = createHashRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'auth/callback', element: <AuthCallbackPage /> },
       { path: 'join/:inviteToken', element: <JoinInvitePage /> },
+      { path: 'public', element: <PublicEventsPage /> },
       {
         element: <RequireAuth />,
         children: [
