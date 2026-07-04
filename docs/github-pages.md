@@ -25,7 +25,7 @@ The deploy workflow also verifies the live page after deployment and fails if Gi
 
 If the live page source contains `%BASE_URL%` or `/src/main.tsx`, GitHub Pages is serving raw repository source, not the Vite artifact. This is a Pages source/settings problem, not a Discord OAuth redirect problem.
 
-The deploy job retries `actions/deploy-pages` once after a short delay when GitHub creates a Pages deployment but reports a transient deployment failure such as `Deployment failed, try again later.` The retry does not weaken the later live-page verification; if GitHub Pages still serves raw source after deployment, the workflow remains failed.
+The deploy job retries `actions/deploy-pages` after short delays when GitHub creates a Pages deployment but reports a transient deployment failure such as `Deployment failed, try again later.` The retries do not weaken the later live-page verification; if GitHub Pages still serves raw source after deployment, the workflow remains failed.
 
 ## Deployment Cancellation
 
