@@ -5,12 +5,17 @@ import { AuthContext } from './AuthContext';
 import type { AuthState } from './AuthContext';
 import { LoginPage } from './LoginPage';
 
-const { assign, signInWithOAuth } = vi.hoisted(() => ({
+const { assign, saveAuthReturnTo, signInWithOAuth } = vi.hoisted(() => ({
   assign: vi.fn(),
+  saveAuthReturnTo: vi.fn(),
   signInWithOAuth: vi.fn(),
 }));
 
 vi.stubGlobal('location', { ...window.location, assign });
+
+vi.mock('./authReturnTo', () => ({
+  saveAuthReturnTo,
+}));
 
 vi.mock('../../lib/supabase', () => ({
   isSupabaseConfigured: true,
@@ -47,6 +52,7 @@ function renderLogin(authState: Partial<AuthState> = {}) {
 describe('LoginPage', () => {
   beforeEach(() => {
     assign.mockReset();
+    saveAuthReturnTo.mockReset();
     signInWithOAuth.mockReset();
     signInWithOAuth.mockResolvedValue({ data: { url: 'https://discord.example/oauth' }, error: null });
   });
@@ -65,6 +71,7 @@ describe('LoginPage', () => {
         },
       });
     });
+    expect(saveAuthReturnTo).toHaveBeenCalledWith('/calendar');
     expect(assign).toHaveBeenCalledWith('https://discord.example/oauth');
   });
 
