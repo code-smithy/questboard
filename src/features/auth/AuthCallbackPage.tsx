@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { getOAuthErrorFromLocation } from './oauthError';
+import { consumeAuthReturnTo } from './authReturnTo';
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ export function AuthCallbackPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      navigate('/calendar', { replace: true });
+      navigate(consumeAuthReturnTo() ?? '/calendar', { replace: true });
     }
   }, [isLoading, navigate, user]);
 

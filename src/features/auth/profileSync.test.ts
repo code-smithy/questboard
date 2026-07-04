@@ -1,0 +1,84 @@
+import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { describe, expect, it, vi } from 'vitest';
+import { getAvatarUrl, getDiscordUserId, getDisplayName, upsertProfileForUser } from './profileSync';
+
+function makeUser(overrides: Partial<User> = {}): User {
+  return {
+    id: 'user-1',
+    app_metadata: {},
+    aud: 'authenticated',
+    created_at: '2026-01-01T00:00:00Z',
+    user_metadata: {},
+    ...overrides,
+  } as User;
+}
+
+describe('profile sync helpers', () => {
+  it('prefers Discord metadata for profile display values', () => {
+    const user = makeUser({
+      email: 'fallback@example.com',
+      user_metadata: {
+        full_name: '  Sir Corgi  ',
+        name: 'Ignored Name',
+        provider_id: '123456789012345678',
+        avatar_url: 'https://cdn.example/avatar.png',
+      },
+    });
+
+    expect(getDisplayName(user)).toBe('Sir Corgi');
+    expect(getDiscordUserId(user)).toBe('123456789012345678');
+    expect(getAvatarUrl(user)).toBe('https://cdn.example/avatar.png');
+  });
+
+  it('falls back through common Supabase Discord identity fields', () => {
+    const user = makeUser({
+      email: 'bard@example.com',
+      user_metadata: { picture: 'https://cdn.example/picture.png' },
+      identities: [
+        {
+          id: 'identity-row-id',
+          identity_id: 'identity-uuid',
+          user_id: 'user-1',
+          provider: 'discord',
+          identity_data: { sub: '987654321098765432' },
+        },
+      ] as User['identities'],
+    });
+
+    expect(getDisplayName(user)).toBe('bard@example.com');
+    expect(getDiscordUserId(user)).toBe('identity-row-id');
+    expect(getAvatarUrl(user)).toBe('https://cdn.example/picture.png');
+  });
+
+  it('upserts the signed-in user profile and returns the saved profile row', async () => {
+    const savedProfile = {
+      id: 'user-1',
+      discord_user_id: '123456789012345678',
+      display_name: 'Quest Keeper',
+      avatar_url: null,
+      created_at: '2026-01-01T00:00:00Z',
+      last_seen_at: '2026-01-02T00:00:00Z',
+      is_site_admin: false,
+    };
+    const single = vi.fn().mockResolvedValue({ data: savedProfile, error: null });
+    const select = vi.fn().mockReturnValue({ single });
+    const upsert = vi.fn().mockReturnValue({ select });
+    const from = vi.fn().mockReturnValue({ upsert });
+    const supabase = { from } as unknown as SupabaseClient;
+
+    await expect(upsertProfileForUser(supabase, makeUser({
+      user_metadata: { name: 'Quest Keeper', provider_id: '123456789012345678' },
+    }))).resolves.toEqual(savedProfile);
+
+    expect(from).toHaveBeenCalledWith('profiles');
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'user-1',
+        discord_user_id: '123456789012345678',
+        display_name: 'Quest Keeper',
+        avatar_url: null,
+      }),
+      { onConflict: 'id' },
+    );
+  });
+});
