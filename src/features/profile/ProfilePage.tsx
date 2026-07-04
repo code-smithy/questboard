@@ -1,12 +1,39 @@
+import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { languageOptions, useLanguage } from '../i18n/LanguageContext';
 import type { Language } from '../i18n/LanguageContext';
 import { useReminders } from '../reminders/ReminderContext';
+import { updateOwnProfileDisplayName } from './profileApi';
 
 export function ProfilePage() {
-  const { profile, user } = useAuth();
+  const { profile, refreshProfile, user } = useAuth();
   const { language, locale, setLanguage, t } = useLanguage();
   const { browserNotificationsEnabled, notificationPermission, setBrowserNotificationsEnabled } = useReminders();
+  const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
+  const canSaveDisplayName = Boolean(profile) && trimmedDisplayName.length > 0 && trimmedDisplayName !== profile?.display_name && saveStatus !== 'saving';
+
+  useEffect(() => {
+    setDisplayName(profile?.display_name ?? '');
+  }, [profile?.display_name]);
+
+  async function handleDisplayNameSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile || !canSaveDisplayName) return;
+
+    setSaveStatus('saving');
+
+    try {
+      await updateOwnProfileDisplayName(profile.id, trimmedDisplayName);
+      await refreshProfile();
+      setSaveStatus('saved');
+    } catch (error) {
+      console.error('Questboard could not update the profile display name', error);
+      setSaveStatus('error');
+    }
+  }
 
   return (
     <section className="panel profile-card">
@@ -45,11 +72,39 @@ export function ProfilePage() {
         </span>
       </label>
 
-      <dl className="details-list">
-        <div>
-          <dt>{t('profile.displayName')}</dt>
-          <dd>{profile?.display_name ?? t('profile.notSynced')}</dd>
+      <form className="profile-display-name-form" onSubmit={(event) => void handleDisplayNameSubmit(event)}>
+        <div className="profile-form-field">
+          <label htmlFor="profile-display-name">{t('profile.displayName')}</label>
+          <input
+            id="profile-display-name"
+            value={displayName}
+            maxLength={80}
+            required
+            disabled={!profile || saveStatus === 'saving'}
+            onChange={(event) => {
+              setDisplayName(event.target.value);
+              setSaveStatus('idle');
+            }}
+          />
         </div>
+        <div className="profile-form-field">
+          <label htmlFor="profile-synced-display-name">{t('profile.syncedDisplayName')}</label>
+          <input
+            id="profile-synced-display-name"
+            value={profile?.synced_display_name ?? t('profile.notSynced')}
+            readOnly
+            aria-describedby="profile-synced-display-name-hint"
+          />
+          <span id="profile-synced-display-name-hint" className="hint">{t('profile.syncedDisplayNameHint')}</span>
+        </div>
+        <button type="submit" disabled={!canSaveDisplayName}>
+          {saveStatus === 'saving' ? t('profile.savingDisplayName') : t('profile.saveDisplayName')}
+        </button>
+        {saveStatus === 'saved' && <p className="status-message">{t('profile.displayNameSaved')}</p>}
+        {saveStatus === 'error' && <p className="error-text">{t('profile.displayNameSaveError')}</p>}
+      </form>
+
+      <dl className="details-list">
         <div>
           <dt>{t('profile.email')}</dt>
           <dd>{user?.email ?? t('profile.emailUnavailable')}</dd>

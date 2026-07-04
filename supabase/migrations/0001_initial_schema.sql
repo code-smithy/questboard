@@ -6,6 +6,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   discord_user_id text unique,
   display_name text not null,
+  synced_display_name text not null,
   avatar_url text,
   created_at timestamptz not null default now(),
   last_seen_at timestamptz,
@@ -183,16 +184,17 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, discord_user_id, display_name, avatar_url)
+  insert into public.profiles (id, discord_user_id, display_name, synced_display_name, avatar_url)
   values (
     new.id,
     new.raw_user_meta_data ->> 'provider_id',
+    coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', new.email, 'New adventurer'),
     coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', new.email, 'New adventurer'),
     new.raw_user_meta_data ->> 'avatar_url'
   )
   on conflict (id) do update set
     discord_user_id = excluded.discord_user_id,
-    display_name = excluded.display_name,
+    synced_display_name = excluded.synced_display_name,
     avatar_url = excluded.avatar_url,
     last_seen_at = now();
 

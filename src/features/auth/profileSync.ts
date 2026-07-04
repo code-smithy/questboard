@@ -30,17 +30,36 @@ export function getAvatarUrl(user: User) {
 }
 
 export async function upsertProfileForUser(supabase: SupabaseClient, user: User) {
-  const profilePayload = {
-    id: user.id,
+  const syncedDisplayName = getDisplayName(user);
+  const syncPayload = {
     discord_user_id: getDiscordUserId(user),
-    display_name: getDisplayName(user),
+    synced_display_name: syncedDisplayName,
     avatar_url: getAvatarUrl(user),
     last_seen_at: new Date().toISOString(),
   };
 
+  const { data: updatedProfile, error: updateError } = await supabase
+    .from('profiles')
+    .update(syncPayload)
+    .eq('id', user.id)
+    .select()
+    .maybeSingle();
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  if (updatedProfile) {
+    return updatedProfile as Profile;
+  }
+
   const { data, error } = await supabase
     .from('profiles')
-    .upsert(profilePayload, { onConflict: 'id' })
+    .insert({
+      id: user.id,
+      ...syncPayload,
+      display_name: syncedDisplayName,
+    })
     .select()
     .single();
 

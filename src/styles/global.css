@@ -311,7 +311,8 @@ nav a:hover {
   }
 
   .two-column-layout,
-  .inline-form {
+  .inline-form,
+  .profile-display-name-form {
     grid-template-columns: 1fr;
   }
 }
@@ -396,7 +397,8 @@ nav a:hover {
 }
 
 .language-select .hint,
-.notification-toggle .hint {
+.notification-toggle .hint,
+.profile-display-name-form .hint {
   color: #bfae95;
   font-size: 0.85rem;
   font-weight: 500;
@@ -407,6 +409,25 @@ nav a:hover {
 .notification-toggle {
   max-width: 30rem;
   margin-top: 1.25rem;
+}
+
+.profile-display-name-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(12rem, 1fr)) auto;
+  gap: 0.85rem;
+  align-items: end;
+  margin-top: 1.25rem;
+}
+
+.profile-form-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.profile-display-name-form .status-message,
+.profile-display-name-form .error-text {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 .checkbox-line {

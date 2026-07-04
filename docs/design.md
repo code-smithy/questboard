@@ -127,6 +127,7 @@ Stored user profile fields:
 - `id`
 - `discord_user_id`
 - `display_name`
+- `synced_display_name`
 - `avatar_url`
 - `created_at`
 - `last_seen_at`
@@ -134,7 +135,6 @@ Stored user profile fields:
 
 Optional later fields:
 
-- Preferred display name override.
 - Timezone.
 - Theme preferences.
 - Notification preferences.
@@ -361,6 +361,7 @@ The schema should include per-event timezone, recurrence columns for future supp
 - `id uuid primary key references auth.users(id)`
 - `discord_user_id text`
 - `display_name text`
+- `synced_display_name text`
 - `avatar_url text`
 - `created_at timestamptz`
 - `last_seen_at timestamptz`

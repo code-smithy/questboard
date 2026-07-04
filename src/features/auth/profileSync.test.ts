@@ -50,20 +50,22 @@ describe('profile sync helpers', () => {
     expect(getAvatarUrl(user)).toBe('https://cdn.example/picture.png');
   });
 
-  it('upserts the signed-in user profile and returns the saved profile row', async () => {
+  it('syncs Discord profile fields without overwriting the shown display name', async () => {
     const savedProfile = {
       id: 'user-1',
       discord_user_id: '123456789012345678',
       display_name: 'Quest Keeper',
+      synced_display_name: 'Discord Keeper',
       avatar_url: null,
       created_at: '2026-01-01T00:00:00Z',
       last_seen_at: '2026-01-02T00:00:00Z',
       is_site_admin: false,
     };
-    const single = vi.fn().mockResolvedValue({ data: savedProfile, error: null });
-    const select = vi.fn().mockReturnValue({ single });
-    const upsert = vi.fn().mockReturnValue({ select });
-    const from = vi.fn().mockReturnValue({ upsert });
+    const maybeSingle = vi.fn().mockResolvedValue({ data: savedProfile, error: null });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const eq = vi.fn().mockReturnValue({ select });
+    const update = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ update });
     const supabase = { from } as unknown as SupabaseClient;
 
     await expect(upsertProfileForUser(supabase, makeUser({
@@ -71,14 +73,47 @@ describe('profile sync helpers', () => {
     }))).resolves.toEqual(savedProfile);
 
     expect(from).toHaveBeenCalledWith('profiles');
-    expect(upsert).toHaveBeenCalledWith(
+    expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: 'user-1',
         discord_user_id: '123456789012345678',
-        display_name: 'Quest Keeper',
+        synced_display_name: 'Quest Keeper',
         avatar_url: null,
       }),
-      { onConflict: 'id' },
     );
+    expect(eq).toHaveBeenCalledWith('id', 'user-1');
+  });
+
+  it('inserts a profile with matching shown and synced names when none exists yet', async () => {
+    const savedProfile = {
+      id: 'user-1',
+      discord_user_id: '123456789012345678',
+      display_name: 'Quest Keeper',
+      synced_display_name: 'Quest Keeper',
+      avatar_url: null,
+      created_at: '2026-01-01T00:00:00Z',
+      last_seen_at: '2026-01-02T00:00:00Z',
+      is_site_admin: false,
+    };
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const updateSelect = vi.fn().mockReturnValue({ maybeSingle });
+    const eq = vi.fn().mockReturnValue({ select: updateSelect });
+    const update = vi.fn().mockReturnValue({ eq });
+    const single = vi.fn().mockResolvedValue({ data: savedProfile, error: null });
+    const insertSelect = vi.fn().mockReturnValue({ single });
+    const insert = vi.fn().mockReturnValue({ select: insertSelect });
+    const from = vi.fn().mockReturnValue({ update, insert });
+    const supabase = { from } as unknown as SupabaseClient;
+
+    await expect(upsertProfileForUser(supabase, makeUser({
+      user_metadata: { name: 'Quest Keeper', provider_id: '123456789012345678' },
+    }))).resolves.toEqual(savedProfile);
+
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'user-1',
+      discord_user_id: '123456789012345678',
+      display_name: 'Quest Keeper',
+      synced_display_name: 'Quest Keeper',
+      avatar_url: null,
+    }));
   });
 });
