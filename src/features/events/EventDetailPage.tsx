@@ -6,7 +6,7 @@ import type { GroupSummary } from '../groups/groupApi';
 import { formatAttendanceLabel, useLanguage } from '../i18n/LanguageContext';
 import { EventForm } from './EventForm';
 import type { EventFormValues } from './EventForm';
-import { addEventComment, archiveEvent, archiveEventComment, buildEventIcs, getAttendanceSummary, getEvent, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } from './eventApi';
+import { addEventComment, archiveEvent, archiveEventComment, archiveEventSeries, buildEventIcs, getAttendanceSummary, getEvent, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } from './eventApi';
 import type { EventRsvpStatus, QuestEvent } from './eventApi';
 import { formatRecurrenceRule } from './recurrence';
 
@@ -227,6 +227,29 @@ export function EventDetailPage() {
     }
   };
 
+  const handleArchiveSeries = async () => {
+    if (!event) return;
+
+    const seriesEventId = event.recurrence_parent_id ?? event.id;
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      await archiveEventSeries(seriesEventId);
+      await recordEventHistory({
+        eventId: seriesEventId,
+        changedBy: user?.id ?? null,
+        changeType: 'event_series_archived',
+        oldValue: { event_id: event.id, recurrence_parent_id: event.recurrence_parent_id },
+        newValue: { status: 'archived' },
+      });
+      navigate('/calendar', { replace: true });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('event.loadError')));
+      setIsSubmitting(false);
+    }
+  };
+
   const handleRsvp = async (status: EventRsvpStatus) => {
     if (!eventId || !user) return;
 
@@ -339,6 +362,7 @@ export function EventDetailPage() {
     const currentGroup = groups.find((group) => group.id === event.group_id);
     const canModerateComments = currentGroup?.role === 'group_admin';
     const locationMapHref = getLocationMapHref(event);
+    const isRecurringEvent = Boolean(event.recurrence_rule || event.recurrence_parent_id);
 
     return (
       <section className="panel">
@@ -480,8 +504,13 @@ export function EventDetailPage() {
           <button type="button" onClick={() => setIsEditing(true)}>{t('event.editQuest')}</button>
           <button type="button" className="secondary-button" onClick={handleDownloadIcs}>{t('event.downloadIcs')}</button>
           <button type="button" className="secondary-button" onClick={handleArchive} disabled={isSubmitting}>
-            {isSubmitting ? t('event.archiving') : t('event.archiveQuest')}
+            {isSubmitting ? t('event.archiving') : isRecurringEvent ? t('event.archiveOccurrence') : t('event.archiveQuest')}
           </button>
+          {isRecurringEvent && (
+            <button type="button" className="secondary-button" onClick={handleArchiveSeries} disabled={isSubmitting}>
+              {isSubmitting ? t('event.archiving') : t('event.archiveSeries')}
+            </button>
+          )}
         </div>
       </section>
     );

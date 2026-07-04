@@ -431,6 +431,25 @@ export async function archiveEvent(eventId: string) {
   if (error) throw error;
 }
 
+export async function archiveEventSeries(seriesEventId: string, now = new Date()) {
+  const archivedAt = now.toISOString();
+  const archivePayload = { status: 'archived', archived_at: archivedAt };
+
+  const { error: parentError } = await supabase
+    .from('events')
+    .update(archivePayload)
+    .eq('id', seriesEventId);
+
+  if (parentError) throw parentError;
+
+  const { error: childError } = await supabase
+    .from('events')
+    .update(archivePayload)
+    .eq('recurrence_parent_id', seriesEventId);
+
+  if (childError) throw childError;
+}
+
 export async function setEventRsvp(eventId: string, userId: string, status: EventRsvpStatus) {
   const { error } = await supabase
     .from('event_rsvps')

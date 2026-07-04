@@ -5,10 +5,11 @@ import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { EventDetailPage } from './EventDetailPage';
 
-const { addEventComment, archiveEvent, archiveEventComment, getEvent, listUserGroups, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } = vi.hoisted(() => ({
+const { addEventComment, archiveEvent, archiveEventComment, archiveEventSeries, getEvent, listUserGroups, recordEventHistory, replaceInAppReminder, setEventRsvp, updateEvent } = vi.hoisted(() => ({
   addEventComment: vi.fn(),
   archiveEvent: vi.fn(),
   archiveEventComment: vi.fn(),
+  archiveEventSeries: vi.fn(),
   getEvent: vi.fn(),
   listUserGroups: vi.fn(),
   recordEventHistory: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock('./eventApi', async (importOriginal) => ({
   addEventComment,
   archiveEvent,
   archiveEventComment,
+  archiveEventSeries,
   getEvent,
   recordEventHistory,
   replaceInAppReminder,
@@ -145,6 +147,7 @@ describe('EventDetailPage', () => {
     addEventComment.mockReset();
     archiveEvent.mockReset();
     archiveEventComment.mockReset();
+    archiveEventSeries.mockReset();
     getEvent.mockReset();
     listUserGroups.mockReset();
     recordEventHistory.mockReset();
@@ -154,7 +157,9 @@ describe('EventDetailPage', () => {
     listUserGroups.mockResolvedValue([{ id: 'group-1', name: 'Friday Guild', role: 'regular' }]);
     getEvent.mockResolvedValue(event);
     addEventComment.mockResolvedValue(undefined);
+    archiveEvent.mockResolvedValue(undefined);
     archiveEventComment.mockResolvedValue(undefined);
+    archiveEventSeries.mockResolvedValue(undefined);
     recordEventHistory.mockResolvedValue(undefined);
     replaceInAppReminder.mockResolvedValue(undefined);
     setEventRsvp.mockResolvedValue(undefined);
@@ -234,5 +239,34 @@ describe('EventDetailPage', () => {
       expect(replaceInAppReminder).toHaveBeenCalledWith('event-1', 'user-1', '2026-07-10T18:00:00Z', 15);
     });
     expect(getEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it('archives only the current occurrence from a recurring quest', async () => {
+    renderEventDetail();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Archive this occurrence' }));
+
+    await waitFor(() => {
+      expect(archiveEvent).toHaveBeenCalledWith('event-1');
+    });
+    expect(archiveEventSeries).not.toHaveBeenCalled();
+    expect(recordEventHistory).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: 'event-1',
+      changeType: 'event_archived',
+    }));
+  });
+
+  it('archives the full recurring series', async () => {
+    renderEventDetail();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Archive series' }));
+
+    await waitFor(() => {
+      expect(archiveEventSeries).toHaveBeenCalledWith('event-1');
+    });
+    expect(recordEventHistory).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: 'event-1',
+      changeType: 'event_series_archived',
+    }));
   });
 });

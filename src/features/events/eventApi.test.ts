@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addEventComment,
   archiveEvent,
+  archiveEventSeries,
   archiveEventComment,
   buildEventIcs,
   createEvent,
@@ -157,6 +158,17 @@ describe('eventApi', () => {
 
     expect(builders.events.update).toHaveBeenCalledWith(expect.objectContaining({ title: 'Quest night' }));
     expect(builders.events.update).toHaveBeenCalledWith({ status: 'archived', archived_at: '2026-07-04T12:00:00.000Z' });
+  });
+
+  it('archives a recurring event series parent and children', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-04T12:00:00.000Z'));
+
+    await archiveEventSeries('series-1');
+
+    expect(builders.events.update).toHaveBeenCalledWith({ status: 'archived', archived_at: '2026-07-04T12:00:00.000Z' });
+    expect(builders.events.eq).toHaveBeenCalledWith('id', 'series-1');
+    expect(builders.events.eq).toHaveBeenCalledWith('recurrence_parent_id', 'series-1');
   });
 
   it('replaces generated future occurrences when a series is updated', async () => {
