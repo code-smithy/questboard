@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 export type EventMode = 'online' | 'offline' | 'hybrid';
 export type EventStatus = 'draft' | 'open' | 'confirmed' | 'cancelled' | 'archived';
 export type EventVisibility = 'private' | 'public';
+export type EventRsvpStatus = 'attending' | 'maybe' | 'declined';
 
 export type EventCategory = {
   id: string;
@@ -31,6 +32,28 @@ export type QuestEvent = {
   status: EventStatus;
   archived_at: string | null;
   categories: Pick<EventCategory, 'id' | 'name' | 'color' | 'icon'> | null;
+  event_rsvps: EventRsvp[];
+};
+
+export type EventRsvp = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  status: EventRsvpStatus;
+  profiles: {
+    display_name: string;
+    avatar_url: string | null;
+  } | null;
+};
+
+export type AttendanceSummary = {
+  attendingCount: number;
+  maybeCount: number;
+  declinedCount: number;
+  remainingMinimum: number;
+  isMinimumReached: boolean;
+  isFull: boolean;
+  label: string;
 };
 
 export type EventFormInput = {
@@ -80,6 +103,35 @@ function toPayload(input: EventFormInput) {
     visibility: input.visibility,
     status: input.status,
   };
+}
+
+export function getAttendanceSummary(input: {
+  rsvps: Array<{ status: EventRsvpStatus }>;
+  minimumAttendees: number;
+  maximumAttendees: number | null;
+  status: EventStatus;
+}): AttendanceSummary {
+  const attendingCount = input.rsvps.filter((rsvp) => rsvp.status === 'attending').length;
+  const maybeCount = input.rsvps.filter((rsvp) => rsvp.status === 'maybe').length;
+  const declinedCount = input.rsvps.filter((rsvp) => rsvp.status === 'declined').length;
+  const remainingMinimum = Math.max(input.minimumAttendees - attendingCount, 0);
+  const isMinimumReached = remainingMinimum === 0;
+  const isFull = input.maximumAttendees !== null && attendingCount >= input.maximumAttendees;
+  const spotsLabel = input.maximumAttendees ? `${attendingCount}/${input.maximumAttendees} seats` : `${attendingCount} attending`;
+
+  if (input.status === 'cancelled') {
+    return { attendingCount, maybeCount, declinedCount, remainingMinimum, isMinimumReached, isFull, label: `${spotsLabel} - Cancelled` };
+  }
+
+  if (isFull) {
+    return { attendingCount, maybeCount, declinedCount, remainingMinimum, isMinimumReached, isFull, label: `${spotsLabel} - Full` };
+  }
+
+  if (isMinimumReached) {
+    return { attendingCount, maybeCount, declinedCount, remainingMinimum, isMinimumReached, isFull, label: `${spotsLabel} - Minimum reached` };
+  }
+
+  return { attendingCount, maybeCount, declinedCount, remainingMinimum, isMinimumReached, isFull, label: `${spotsLabel} - Needs ${remainingMinimum} more` };
 }
 
 export async function listGroupCategories(groupId: string): Promise<EventCategory[]> {
@@ -134,6 +186,16 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
           name,
           color,
           icon
+        ),
+        event_rsvps (
+          id,
+          event_id,
+          user_id,
+          status,
+          profiles (
+            display_name,
+            avatar_url
+          )
         )
       `,
     )
@@ -142,11 +204,15 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
 
   if (error) throw error;
 
-  const row = data as unknown as Omit<QuestEvent, 'categories'> & { categories: QuestEvent['categories'] | QuestEvent['categories'][] };
+  const row = data as unknown as Omit<QuestEvent, 'categories' | 'event_rsvps'> & {
+    categories: QuestEvent['categories'] | QuestEvent['categories'][];
+    event_rsvps: EventRsvp[] | null;
+  };
 
   return {
     ...row,
     categories: Array.isArray(row.categories) ? row.categories[0] ?? null : row.categories,
+    event_rsvps: row.event_rsvps ?? [],
   };
 }
 
@@ -164,6 +230,14 @@ export async function archiveEvent(eventId: string) {
     .from('events')
     .update({ status: 'archived', archived_at: new Date().toISOString() })
     .eq('id', eventId);
+
+  if (error) throw error;
+}
+
+export async function setEventRsvp(eventId: string, userId: string, status: EventRsvpStatus) {
+  const { error } = await supabase
+    .from('event_rsvps')
+    .upsert({ event_id: eventId, user_id: userId, status }, { onConflict: 'event_id,user_id' });
 
   if (error) throw error;
 }

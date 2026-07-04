@@ -459,6 +459,49 @@ nav a:hover {
   margin-top: 1.5rem;
 }
 
+.rsvp-panel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.35rem;
+  border-top: 1px solid rgba(240, 179, 90, 0.18);
+  padding-top: 1.25rem;
+}
+
+.rsvp-panel h3 {
+  margin: 0;
+}
+
+.rsvp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.rsvp-actions button {
+  min-width: 7.5rem;
+}
+
+.rsvp-actions button.is-selected {
+  border-color: rgba(119, 221, 170, 0.75);
+  background: rgba(119, 221, 170, 0.16);
+  color: #d7ffe9;
+}
+
+.attendee-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.attendee-list span {
+  border: 1px solid rgba(248, 234, 210, 0.16);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  color: #f8ead2;
+  background: rgba(248, 234, 210, 0.06);
+  font-size: 0.9rem;
+}
+
 @media (max-width: 720px) {
   .inline-form.two-up,
   .inline-form.three-up {

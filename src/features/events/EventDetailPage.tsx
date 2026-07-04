@@ -5,8 +5,8 @@ import { listUserGroups } from '../groups/groupApi';
 import type { GroupSummary } from '../groups/groupApi';
 import { EventForm } from './EventForm';
 import type { EventFormValues } from './EventForm';
-import { archiveEvent, getEvent, updateEvent } from './eventApi';
-import type { QuestEvent } from './eventApi';
+import { archiveEvent, getAttendanceSummary, getEvent, setEventRsvp, updateEvent } from './eventApi';
+import type { EventRsvpStatus, QuestEvent } from './eventApi';
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error && error.message ? error.message : 'Questboard could not load that quest.';
@@ -37,6 +37,12 @@ function toFormValues(event: QuestEvent): EventFormValues {
   };
 }
 
+const rsvpOptions: Array<{ status: EventRsvpStatus; label: string }> = [
+  { status: 'attending', label: 'Attending' },
+  { status: 'maybe', label: 'Maybe' },
+  { status: 'declined', label: 'Declined' },
+];
+
 export function EventDetailPage() {
   const { eventId } = useParams();
   const { user } = useAuth();
@@ -46,6 +52,7 @@ export function EventDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingRsvp, setIsSavingRsvp] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,8 +108,88 @@ export function EventDetailPage() {
     }
   };
 
+  const handleRsvp = async (status: EventRsvpStatus) => {
+    if (!eventId || !user) return;
+
+    setIsSavingRsvp(true);
+    setErrorMessage(null);
+
+    try {
+      await setEventRsvp(eventId, user.id, status);
+      setEvent(await getEvent(eventId));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSavingRsvp(false);
+    }
+  };
+
   if (!user) return <Navigate to="/login" replace />;
   if (!eventId) return <Navigate to="/calendar" replace />;
+
+  if (event && !isEditing) {
+    const attendance = getAttendanceSummary({
+      rsvps: event.event_rsvps,
+      minimumAttendees: event.minimum_attendees,
+      maximumAttendees: event.maximum_attendees,
+      status: event.status,
+    });
+    const currentUserRsvp = event.event_rsvps.find((rsvp) => rsvp.user_id === user.id)?.status ?? null;
+    const attendees = event.event_rsvps.filter((rsvp) => rsvp.status === 'attending');
+
+    return (
+      <section className="panel">
+        <p className="eyebrow">Event detail</p>
+        {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
+        <h2>{event.title}</h2>
+        <dl className="details-list">
+          <div><dt>When</dt><dd>{formatDate(event.start_at, event.timezone)} - {formatDate(event.end_at, event.timezone)}</dd></div>
+          <div><dt>Category</dt><dd>{event.categories?.name ?? 'Uncategorized'}</dd></div>
+          <div><dt>Mode</dt><dd>{event.mode}</dd></div>
+          <div><dt>Status</dt><dd>{event.status}</dd></div>
+          <div><dt>Attendance</dt><dd>{attendance.label}</dd></div>
+          <div><dt>Location</dt><dd>{event.location_text ?? 'No location details yet.'}</dd></div>
+          <div><dt>Online</dt><dd>{event.online_details.platform || event.online_details.url || event.online_details.instructions || 'No online details yet.'}</dd></div>
+          <div><dt>Description</dt><dd>{event.description ?? 'No description yet.'}</dd></div>
+        </dl>
+
+        <section className="rsvp-panel" aria-labelledby="rsvp-heading">
+          <div>
+            <p className="eyebrow">RSVP</p>
+            <h3 id="rsvp-heading">Attendance</h3>
+            <p className="hint">
+              {attendance.attendingCount} attending, {attendance.maybeCount} maybe, {attendance.declinedCount} declined.
+            </p>
+          </div>
+          <div className="rsvp-actions" aria-label="Choose your RSVP">
+            {rsvpOptions.map((option) => (
+              <button
+                type="button"
+                className={currentUserRsvp === option.status ? 'is-selected' : undefined}
+                disabled={isSavingRsvp || (option.status === 'attending' && attendance.isFull && currentUserRsvp !== 'attending')}
+                key={option.status}
+                onClick={() => void handleRsvp(option.status)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="attendee-list" aria-label="Attending members">
+            {attendees.length ? attendees.map((rsvp) => (
+              <span key={rsvp.id}>{rsvp.profiles?.display_name ?? 'Unknown member'}</span>
+            )) : <span>No confirmed attendees yet.</span>}
+          </div>
+        </section>
+
+        <div className="button-row">
+          <button type="button" onClick={() => setIsEditing(true)}>Edit quest</button>
+          <button type="button" className="secondary-button" onClick={handleArchive} disabled={isSubmitting}>
+            {isSubmitting ? 'Archiving...' : 'Archive quest'}
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="panel">
@@ -112,30 +199,10 @@ export function EventDetailPage() {
         <p className="hint">Loading quest details...</p>
       ) : !event ? (
         <p className="hint">Quest not found.</p>
-      ) : isEditing ? (
+      ) : (
         <>
           <h2>Edit quest</h2>
           <EventForm groups={groups} initialValues={toFormValues(event)} isSubmitting={isSubmitting} submitLabel="Save quest" onSubmit={handleUpdate} />
-        </>
-      ) : (
-        <>
-          <h2>{event.title}</h2>
-          <dl className="details-list">
-            <div><dt>When</dt><dd>{formatDate(event.start_at, event.timezone)} – {formatDate(event.end_at, event.timezone)}</dd></div>
-            <div><dt>Category</dt><dd>{event.categories?.name ?? 'Uncategorized'}</dd></div>
-            <div><dt>Mode</dt><dd>{event.mode}</dd></div>
-            <div><dt>Status</dt><dd>{event.status}</dd></div>
-            <div><dt>Attendance</dt><dd>Minimum {event.minimum_attendees}{event.maximum_attendees ? `, maximum ${event.maximum_attendees}` : ', no maximum'}</dd></div>
-            <div><dt>Location</dt><dd>{event.location_text ?? 'No location details yet.'}</dd></div>
-            <div><dt>Online</dt><dd>{event.online_details.platform || event.online_details.url || event.online_details.instructions || 'No online details yet.'}</dd></div>
-            <div><dt>Description</dt><dd>{event.description ?? 'No description yet.'}</dd></div>
-          </dl>
-          <div className="button-row">
-            <button type="button" onClick={() => setIsEditing(true)}>Edit quest</button>
-            <button type="button" className="secondary-button" onClick={handleArchive} disabled={isSubmitting}>
-              {isSubmitting ? 'Archiving...' : 'Archive quest'}
-            </button>
-          </div>
         </>
       )}
     </section>

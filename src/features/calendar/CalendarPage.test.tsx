@@ -42,7 +42,7 @@ const readModel = {
       maximum_attendees: 5,
       visibility: 'private',
       status: 'open',
-      category: { id: 'category-1', name: 'Board Games', color: '#f0b35a', icon: '🎲' },
+      category: { id: 'category-1', name: 'Board Games', color: '#f0b35a', icon: null },
       rsvps: [{ status: 'attending' }, { status: 'maybe' }],
     },
     {
@@ -58,7 +58,7 @@ const readModel = {
       maximum_attendees: null,
       visibility: 'public',
       status: 'confirmed',
-      category: { id: 'category-2', name: 'Mini Painting', color: '#77ddaa', icon: '🖌️' },
+      category: { id: 'category-2', name: 'Mini Painting', color: '#77ddaa', icon: null },
       rsvps: [{ status: 'attending' }],
     },
   ],
@@ -115,6 +115,6 @@ describe('CalendarPage', () => {
 
     const eventLink = await screen.findByRole('link', { name: /board game night/i });
     expect(eventLink).toHaveAttribute('href', '/events/event-1');
-    expect(within(eventLink).getByText(/Board Games · Offline · private/i)).toBeInTheDocument();
+    expect(within(eventLink).getByText(/Board Games - Offline - private/i)).toBeInTheDocument();
   });
 });

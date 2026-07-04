@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { getAttendanceSummary } from '../events/eventApi';
 import { getCalendarReadModel } from './calendarApi';
 import type { CalendarEvent, CalendarEventMode } from './calendarApi';
 
@@ -33,13 +34,12 @@ function getMonthLabel(monthKey: string) {
 }
 
 function getAttendanceLabel(event: CalendarEvent) {
-  const attendingCount = event.rsvps.filter((rsvp) => rsvp.status === 'attending').length;
-  const spotsLabel = event.maximum_attendees ? `${attendingCount}/${event.maximum_attendees} seats` : `${attendingCount} attending`;
-
-  if (event.status === 'cancelled') return `${spotsLabel} · Cancelled`;
-  if (attendingCount >= event.minimum_attendees) return `${spotsLabel} · Minimum reached`;
-
-  return `${spotsLabel} · Needs ${event.minimum_attendees - attendingCount} more`;
+  return getAttendanceSummary({
+    rsvps: event.rsvps,
+    minimumAttendees: event.minimum_attendees,
+    maximumAttendees: event.maximum_attendees,
+    status: event.status,
+  }).label;
 }
 
 export function CalendarPage() {
@@ -162,7 +162,7 @@ export function CalendarPage() {
                     <span className="event-date">{formatEventDate(event)}</span>
                     <span className="event-title">{event.title}</span>
                     <span className="event-meta">
-                      {event.category?.name ?? 'Uncategorized'} · {modeLabels[event.mode]} · {event.visibility}
+                      {event.category?.name ?? 'Uncategorized'} - {modeLabels[event.mode]} - {event.visibility}
                     </span>
                     <span className="event-attendance">{getAttendanceLabel(event)}</span>
                   </Link>

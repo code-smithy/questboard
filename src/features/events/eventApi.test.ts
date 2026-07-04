@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { archiveEvent, createEvent, listGroupCategories, updateEvent } from './eventApi';
+import { archiveEvent, createEvent, getAttendanceSummary, listGroupCategories, setEventRsvp, updateEvent } from './eventApi';
 
 const { builders, from } = vi.hoisted(() => {
   const builders = {
@@ -15,11 +15,14 @@ const { builders, from } = vi.hoisted(() => {
       update: vi.fn(() => builders.events),
       eq: vi.fn(),
     },
+    event_rsvps: {
+      upsert: vi.fn(),
+    },
   };
 
   return {
     builders,
-    from: vi.fn((table: 'categories' | 'events') => builders[table]),
+    from: vi.fn((table: 'categories' | 'events' | 'event_rsvps') => builders[table]),
   };
 });
 
@@ -91,5 +94,41 @@ describe('eventApi', () => {
 
     expect(builders.events.update).toHaveBeenCalledWith(expect.objectContaining({ title: 'Quest night' }));
     expect(builders.events.update).toHaveBeenCalledWith({ status: 'archived', archived_at: '2026-07-04T12:00:00.000Z' });
+  });
+
+  it('upserts a member RSVP for an event', async () => {
+    builders.event_rsvps.upsert.mockResolvedValue({ error: null });
+
+    await setEventRsvp('event-1', 'user-1', 'attending');
+
+    expect(from).toHaveBeenCalledWith('event_rsvps');
+    expect(builders.event_rsvps.upsert).toHaveBeenCalledWith(
+      { event_id: 'event-1', user_id: 'user-1', status: 'attending' },
+      { onConflict: 'event_id,user_id' },
+    );
+  });
+
+  it('summarizes RSVP counts and attendance thresholds', () => {
+    expect(getAttendanceSummary({
+      rsvps: [{ status: 'attending' }, { status: 'maybe' }, { status: 'declined' }],
+      minimumAttendees: 2,
+      maximumAttendees: 4,
+      status: 'open',
+    })).toMatchObject({
+      attendingCount: 1,
+      maybeCount: 1,
+      declinedCount: 1,
+      remainingMinimum: 1,
+      isMinimumReached: false,
+      isFull: false,
+      label: '1/4 seats - Needs 1 more',
+    });
+
+    expect(getAttendanceSummary({
+      rsvps: [{ status: 'attending' }, { status: 'attending' }],
+      minimumAttendees: 2,
+      maximumAttendees: 2,
+      status: 'open',
+    }).label).toBe('2/2 seats - Full');
   });
 });
