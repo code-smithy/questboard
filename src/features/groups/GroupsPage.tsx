@@ -486,11 +486,13 @@ export function GroupsPage() {
               <h3>{selectedGroup.name}</h3>
               <p>{selectedGroup.description || t('groups.noDescription')}</p>
               {selectedGroup.theme && <p className="hint">{t('groups.themePrefix', { theme: selectedGroup.theme })}</p>}
-              <div className="button-row compact-actions">
-                <button type="button" className="secondary-button" disabled={isLeavingGroup} onClick={() => void handleLeaveGroup()}>
-                  {isLeavingGroup ? t('groups.leavingGuild') : t('groups.leaveGuild')}
-                </button>
-              </div>
+              {selectedGroup.role !== 'group_admin' && (
+                <div className="button-row compact-actions">
+                  <button type="button" className="secondary-button" disabled={isLeavingGroup} onClick={() => void handleLeaveGroup()}>
+                    {isLeavingGroup ? t('groups.leavingGuild') : t('groups.leaveGuild')}
+                  </button>
+                </div>
+              )}
               {canArchiveGroup && (
                 <button type="button" className="secondary-button" disabled={isArchivingGroup} onClick={() => void handleArchiveGroup()}>
                   {isArchivingGroup ? t('groups.archivingGuild') : t('groups.archiveGuild')}

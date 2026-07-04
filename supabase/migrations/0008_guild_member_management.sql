@@ -8,7 +8,6 @@ set search_path = public
 as $$
 declare
   current_membership public.group_members%rowtype;
-  active_admin_count integer;
 begin
   if auth.uid() is null then
     raise exception 'Authentication is required to leave a guild.';
@@ -29,16 +28,7 @@ begin
   end if;
 
   if current_membership.role = 'group_admin' then
-    select count(*)::integer
-    into active_admin_count
-    from public.group_members
-    where group_id = target_group_id
-      and role = 'group_admin'
-      and archived_at is null;
-
-    if active_admin_count <= 1 then
-      raise exception 'A guild needs at least one active admin.';
-    end if;
+    raise exception 'Guild admins cannot leave a guild. Transfer admin duties or ask another admin to remove them.';
   end if;
 
   update public.group_members

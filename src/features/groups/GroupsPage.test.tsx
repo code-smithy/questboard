@@ -75,6 +75,11 @@ const adminGroup: GroupSummary = {
   joined_at: '2026-07-03T12:00:00.000Z',
 };
 
+const regularGroup: GroupSummary = {
+  ...adminGroup,
+  role: 'regular',
+};
+
 const invite: GroupInvite = {
   id: 'invite-1',
   group_id: 'group-1',
@@ -219,9 +224,18 @@ describe('GroupsPage', () => {
     expect(screen.queryByText('Map Maker')).not.toBeInTheDocument();
   });
 
+  it('does not let guild admins leave guilds themselves', async () => {
+    renderGroups();
+
+    expect(await screen.findByText('Board games and one-shots.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /leave guild/i })).not.toBeInTheDocument();
+  });
+
   it('lets members leave guilds', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    listUserGroups.mockResolvedValueOnce([adminGroup]).mockResolvedValueOnce([]);
+    listUserGroups.mockResolvedValueOnce([regularGroup]).mockResolvedValueOnce([]);
+    listGroupInvites.mockResolvedValue([]);
+    listPendingEventJoinRequests.mockResolvedValue([]);
 
     renderGroups();
 
