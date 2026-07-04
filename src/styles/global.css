@@ -439,3 +439,29 @@ nav a:hover {
     grid-template-columns: 1fr;
   }
 }
+
+.event-form {
+  margin-top: 1.25rem;
+}
+
+.inline-form.two-up {
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+}
+
+.inline-form.three-up {
+  grid-template-columns: repeat(3, minmax(10rem, 1fr));
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 720px) {
+  .inline-form.two-up,
+  .inline-form.three-up {
+    grid-template-columns: 1fr;
+  }
+}
