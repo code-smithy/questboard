@@ -1,14 +1,17 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { EventDetailPage } from './EventDetailPage';
 
-const { archiveEvent, getEvent, listUserGroups, setEventRsvp, updateEvent } = vi.hoisted(() => ({
+const { addEventComment, archiveEvent, archiveEventComment, getEvent, listUserGroups, recordEventHistory, setEventRsvp, updateEvent } = vi.hoisted(() => ({
+  addEventComment: vi.fn(),
   archiveEvent: vi.fn(),
+  archiveEventComment: vi.fn(),
   getEvent: vi.fn(),
   listUserGroups: vi.fn(),
+  recordEventHistory: vi.fn(),
   setEventRsvp: vi.fn(),
   updateEvent: vi.fn(),
 }));
@@ -19,8 +22,11 @@ vi.mock('../groups/groupApi', () => ({
 
 vi.mock('./eventApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./eventApi')>()),
+  addEventComment,
   archiveEvent,
+  archiveEventComment,
   getEvent,
+  recordEventHistory,
   setEventRsvp,
   updateEvent,
 }));
@@ -70,6 +76,30 @@ const event = {
       profiles: { display_name: 'Map Maker', avatar_url: null },
     },
   ],
+  event_comments: [
+    {
+      id: 'comment-1',
+      event_id: 'event-1',
+      user_id: 'user-1',
+      body: 'I can bring snacks.',
+      created_at: '2026-07-05T10:00:00Z',
+      updated_at: '2026-07-05T10:00:00Z',
+      archived_at: null,
+      profiles: { display_name: 'Quest Keeper', avatar_url: null },
+    },
+  ],
+  event_history: [
+    {
+      id: 'history-1',
+      event_id: 'event-1',
+      changed_by: 'user-2',
+      change_type: 'event_updated',
+      old_value: { title: 'Old title' },
+      new_value: { title: 'Board game night' },
+      created_at: '2026-07-05T11:00:00Z',
+      profiles: { display_name: 'Map Maker', avatar_url: null },
+    },
+  ],
 };
 
 function renderEventDetail() {
@@ -87,23 +117,31 @@ function renderEventDetail() {
 
 describe('EventDetailPage', () => {
   beforeEach(() => {
+    addEventComment.mockReset();
     archiveEvent.mockReset();
+    archiveEventComment.mockReset();
     getEvent.mockReset();
     listUserGroups.mockReset();
+    recordEventHistory.mockReset();
     setEventRsvp.mockReset();
     updateEvent.mockReset();
     listUserGroups.mockResolvedValue([{ id: 'group-1', name: 'Friday Guild', role: 'regular' }]);
     getEvent.mockResolvedValue(event);
+    addEventComment.mockResolvedValue(undefined);
+    archiveEventComment.mockResolvedValue(undefined);
+    recordEventHistory.mockResolvedValue(undefined);
     setEventRsvp.mockResolvedValue(undefined);
   });
 
-  it('shows RSVP counts and attending members', async () => {
+  it('shows RSVP counts, comments, and history', async () => {
     renderEventDetail();
 
     expect(await screen.findByRole('heading', { name: 'Board game night' })).toBeInTheDocument();
     expect(screen.getByText('1/4 seats - Needs 1 more')).toBeInTheDocument();
     expect(screen.getByText('1 attending, 1 maybe, 0 declined.')).toBeInTheDocument();
-    expect(screen.getByText('Quest Keeper')).toBeInTheDocument();
+    expect(within(screen.getByLabelText('Attending members')).getByText('Quest Keeper')).toBeInTheDocument();
+    expect(screen.getByText('I can bring snacks.')).toBeInTheDocument();
+    expect(screen.getByText('event updated')).toBeInTheDocument();
   });
 
   it('saves the current member RSVP and reloads the event', async () => {
@@ -115,5 +153,46 @@ describe('EventDetailPage', () => {
       expect(setEventRsvp).toHaveBeenCalledWith('event-1', 'user-1', 'maybe');
     });
     expect(getEvent).toHaveBeenCalledTimes(2);
+    expect(recordEventHistory).toHaveBeenCalledWith({
+      eventId: 'event-1',
+      changedBy: 'user-1',
+      changeType: 'rsvp_updated',
+      oldValue: { status: 'attending' },
+      newValue: { status: 'maybe' },
+    });
+  });
+
+  it('posts comments and records comment history', async () => {
+    renderEventDetail();
+
+    fireEvent.change(await screen.findByLabelText('Add comment'), { target: { value: 'New plan.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Post comment' }));
+
+    await waitFor(() => {
+      expect(addEventComment).toHaveBeenCalledWith('event-1', 'user-1', 'New plan.');
+    });
+    expect(recordEventHistory).toHaveBeenCalledWith({
+      eventId: 'event-1',
+      changedBy: 'user-1',
+      changeType: 'comment_added',
+      newValue: { body: 'New plan.' },
+    });
+    expect(getEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it('archives the current member comment', async () => {
+    renderEventDetail();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Archive comment' }));
+
+    await waitFor(() => {
+      expect(archiveEventComment).toHaveBeenCalledWith('comment-1');
+    });
+    expect(recordEventHistory).toHaveBeenCalledWith({
+      eventId: 'event-1',
+      changedBy: 'user-1',
+      changeType: 'comment_archived',
+      newValue: { comment_id: 'comment-1' },
+    });
   });
 });

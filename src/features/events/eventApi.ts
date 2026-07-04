@@ -33,6 +33,8 @@ export type QuestEvent = {
   archived_at: string | null;
   categories: Pick<EventCategory, 'id' | 'name' | 'color' | 'icon'> | null;
   event_rsvps: EventRsvp[];
+  event_comments: EventComment[];
+  event_history: EventHistoryEntry[];
 };
 
 export type EventRsvp = {
@@ -44,6 +46,42 @@ export type EventRsvp = {
     display_name: string;
     avatar_url: string | null;
   } | null;
+};
+
+export type EventComment = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  profiles: {
+    display_name: string;
+    avatar_url: string | null;
+  } | null;
+};
+
+export type EventHistoryEntry = {
+  id: string;
+  event_id: string;
+  changed_by: string | null;
+  change_type: string;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  created_at: string;
+  profiles: {
+    display_name: string;
+    avatar_url: string | null;
+  } | null;
+};
+
+export type EventHistoryInput = {
+  eventId: string;
+  changedBy: string | null;
+  changeType: string;
+  oldValue?: Record<string, unknown> | null;
+  newValue?: Record<string, unknown> | null;
 };
 
 export type AttendanceSummary = {
@@ -196,6 +234,32 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
             display_name,
             avatar_url
           )
+        ),
+        event_comments (
+          id,
+          event_id,
+          user_id,
+          body,
+          created_at,
+          updated_at,
+          archived_at,
+          profiles (
+            display_name,
+            avatar_url
+          )
+        ),
+        event_history (
+          id,
+          event_id,
+          changed_by,
+          change_type,
+          old_value,
+          new_value,
+          created_at,
+          profiles (
+            display_name,
+            avatar_url
+          )
         )
       `,
     )
@@ -204,15 +268,22 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
 
   if (error) throw error;
 
-  const row = data as unknown as Omit<QuestEvent, 'categories' | 'event_rsvps'> & {
+  const row = data as unknown as Omit<QuestEvent, 'categories' | 'event_rsvps' | 'event_comments' | 'event_history'> & {
     categories: QuestEvent['categories'] | QuestEvent['categories'][];
     event_rsvps: EventRsvp[] | null;
+    event_comments: EventComment[] | null;
+    event_history: EventHistoryEntry[] | null;
   };
 
   return {
     ...row,
     categories: Array.isArray(row.categories) ? row.categories[0] ?? null : row.categories,
     event_rsvps: row.event_rsvps ?? [],
+    event_comments: (row.event_comments ?? [])
+      .filter((comment) => !comment.archived_at)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    event_history: (row.event_history ?? [])
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
   };
 }
 
@@ -238,6 +309,40 @@ export async function setEventRsvp(eventId: string, userId: string, status: Even
   const { error } = await supabase
     .from('event_rsvps')
     .upsert({ event_id: eventId, user_id: userId, status }, { onConflict: 'event_id,user_id' });
+
+  if (error) throw error;
+}
+
+export async function addEventComment(eventId: string, userId: string, body: string) {
+  const trimmedBody = body.trim();
+  if (!trimmedBody) throw new Error('Write a comment before posting.');
+
+  const { error } = await supabase
+    .from('event_comments')
+    .insert({ event_id: eventId, user_id: userId, body: trimmedBody });
+
+  if (error) throw error;
+}
+
+export async function archiveEventComment(commentId: string) {
+  const { error } = await supabase
+    .from('event_comments')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', commentId);
+
+  if (error) throw error;
+}
+
+export async function recordEventHistory({ eventId, changedBy, changeType, oldValue = null, newValue = null }: EventHistoryInput) {
+  const { error } = await supabase
+    .from('event_history')
+    .insert({
+      event_id: eventId,
+      changed_by: changedBy,
+      change_type: changeType,
+      old_value: oldValue,
+      new_value: newValue,
+    });
 
   if (error) throw error;
 }

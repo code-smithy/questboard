@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { archiveEvent, createEvent, getAttendanceSummary, listGroupCategories, setEventRsvp, updateEvent } from './eventApi';
+import {
+  addEventComment,
+  archiveEvent,
+  archiveEventComment,
+  createEvent,
+  getAttendanceSummary,
+  listGroupCategories,
+  recordEventHistory,
+  setEventRsvp,
+  updateEvent,
+} from './eventApi';
 
 const { builders, from } = vi.hoisted(() => {
   const builders = {
@@ -18,11 +28,19 @@ const { builders, from } = vi.hoisted(() => {
     event_rsvps: {
       upsert: vi.fn(),
     },
+    event_comments: {
+      insert: vi.fn(),
+      update: vi.fn(() => builders.event_comments),
+      eq: vi.fn(),
+    },
+    event_history: {
+      insert: vi.fn(),
+    },
   };
 
   return {
     builders,
-    from: vi.fn((table: 'categories' | 'events' | 'event_rsvps') => builders[table]),
+    from: vi.fn((table: 'categories' | 'events' | 'event_rsvps' | 'event_comments' | 'event_history') => builders[table]),
   };
 });
 
@@ -106,6 +124,44 @@ describe('eventApi', () => {
       { event_id: 'event-1', user_id: 'user-1', status: 'attending' },
       { onConflict: 'event_id,user_id' },
     );
+  });
+
+  it('creates and archives event comments', async () => {
+    builders.event_comments.insert.mockResolvedValue({ error: null });
+    builders.event_comments.eq.mockResolvedValue({ error: null });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-04T12:30:00.000Z'));
+
+    await addEventComment('event-1', 'user-1', '  I can bring snacks.  ');
+    await archiveEventComment('comment-1');
+
+    expect(builders.event_comments.insert).toHaveBeenCalledWith({
+      event_id: 'event-1',
+      user_id: 'user-1',
+      body: 'I can bring snacks.',
+    });
+    expect(builders.event_comments.update).toHaveBeenCalledWith({ archived_at: '2026-07-04T12:30:00.000Z' });
+    expect(builders.event_comments.eq).toHaveBeenCalledWith('id', 'comment-1');
+  });
+
+  it('records event history entries', async () => {
+    builders.event_history.insert.mockResolvedValue({ error: null });
+
+    await recordEventHistory({
+      eventId: 'event-1',
+      changedBy: 'user-1',
+      changeType: 'event_updated',
+      oldValue: { title: 'Old title' },
+      newValue: { title: 'New title' },
+    });
+
+    expect(builders.event_history.insert).toHaveBeenCalledWith({
+      event_id: 'event-1',
+      changed_by: 'user-1',
+      change_type: 'event_updated',
+      old_value: { title: 'Old title' },
+      new_value: { title: 'New title' },
+    });
   });
 
   it('summarizes RSVP counts and attendance thresholds', () => {
