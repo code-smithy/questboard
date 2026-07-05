@@ -70,7 +70,7 @@ describe('getCalendarReadModel', () => {
 
     await expect(getCalendarReadModel('user-1')).resolves.toMatchObject({
       groups: [{ id: 'group-1' }],
-      events: [{ id: 'event-1', category: { name: 'Board Games' }, rsvps: [{ user_id: 'user-1', status: 'attending' }] }],
+      events: [{ id: 'event-1', group_name: 'Guild', category: { name: 'Board Games' }, rsvps: [{ user_id: 'user-1', status: 'attending' }] }],
     });
 
     expect(from).toHaveBeenCalledWith('events');

@@ -176,6 +176,7 @@ describe('EventDetailPage', () => {
     expect(await screen.findByRole('heading', { name: 'Board game night' })).toBeInTheDocument();
     expect(screen.getByText('1/4 seats - Needs 1 more')).toBeInTheDocument();
     expect(screen.getByText('Every 1 week(s) on Monday, Wednesday')).toBeInTheDocument();
+    expect(screen.getByText('Friday Guild')).toBeInTheDocument();
     expect(screen.getByText('1 attending, 1 maybe, 0 declined.')).toBeInTheDocument();
     expect(within(screen.getByLabelText('Attending members')).getByText('Quest Keeper')).toBeInTheDocument();
     expect(screen.getByText('I can bring snacks.')).toBeInTheDocument();

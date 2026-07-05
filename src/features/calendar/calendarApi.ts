@@ -9,6 +9,7 @@ export type CalendarEventVisibility = 'private' | 'public';
 export type CalendarEvent = {
   id: string;
   group_id: string;
+  group_name: string;
   title: string;
   description: string | null;
   start_at: string;
@@ -41,6 +42,7 @@ export type CalendarReadModel = {
 export async function getCalendarReadModel(userId: string): Promise<CalendarReadModel> {
   const groups = await listUserGroups(userId);
   const groupIds = groups.map((group) => group.id);
+  const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
 
   if (!groupIds.length) {
     return { groups, events: [] };
@@ -84,6 +86,7 @@ export async function getCalendarReadModel(userId: string): Promise<CalendarRead
   const events = ((data ?? []) as unknown as CalendarEventRow[]).map((event) => ({
     id: event.id,
     group_id: event.group_id,
+    group_name: groupNameById.get(event.group_id) ?? event.group_id,
     title: event.title,
     description: event.description,
     start_at: event.start_at,

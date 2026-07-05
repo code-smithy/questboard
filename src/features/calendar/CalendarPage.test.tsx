@@ -49,6 +49,7 @@ const readModel = {
     {
       id: 'event-1',
       group_id: 'group-1',
+      group_name: 'Friday Guild',
       title: 'Board game night',
       description: null,
       start_at: '2026-07-10T18:00:00Z',
@@ -65,6 +66,7 @@ const readModel = {
     {
       id: 'event-2',
       group_id: 'group-2',
+      group_name: 'Painting Crew',
       title: 'Mini painting hangout',
       description: null,
       start_at: '2026-08-02T19:00:00Z',
@@ -134,7 +136,11 @@ describe('CalendarPage', () => {
     renderCalendar();
 
     expect(await screen.findByRole('heading', { name: 'July 2026' })).toBeInTheDocument();
-    expect(screen.getByText('Board game night')).toBeInTheDocument();
+    const boardGameTitle = screen.getByText('Board game night');
+    const boardGameCard = boardGameTitle.closest('article');
+    expect(boardGameTitle).toBeInTheDocument();
+    expect(boardGameCard).not.toBeNull();
+    expect(within(boardGameCard as HTMLElement).getByText(/Friday Guild/i)).toBeInTheDocument();
     expect(screen.getByText(/Needs 2 more/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument();
     expect(screen.getByText('Mini painting hangout')).toBeInTheDocument();
@@ -195,6 +201,7 @@ describe('CalendarPage', () => {
 
     const eventLink = await screen.findByRole('link', { name: /board game night/i });
     expect(eventLink).toHaveAttribute('href', '/events/event-1');
+    expect(within(eventLink).getByText(/Friday Guild/i)).toBeInTheDocument();
     expect(within(eventLink).getByText('Board Games')).toBeInTheDocument();
     expect(within(eventLink).getByText(/Offline - private/i)).toBeInTheDocument();
   });

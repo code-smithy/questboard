@@ -369,9 +369,9 @@ export function CalendarPage() {
                       className="month-event-link"
                       data-status={event.status}
                       key={event.id}
-                      aria-label={`${getTimeLabel(event, locale)} ${event.title}`}
+                      aria-label={`${getTimeLabel(event, locale)} ${event.title} - ${event.group_name}`}
                       style={getCategoryStyle(event.category?.color)}
-                      title={`${getTimeLabel(event, locale)} ${event.title}`}
+                      title={`${getTimeLabel(event, locale)} ${event.title} - ${event.group_name}`}
                       to={`/events/${event.id}`}
                     >
                       <span>{getTimeLabel(event, locale)}</span>
@@ -419,6 +419,7 @@ export function CalendarPage() {
                           </span>
                           <span className="event-title">{event.title}</span>
                           <span className="event-meta">
+                            {event.group_name} -{' '}
                             <span className="event-category-label">
                               <span className="event-category-swatch" aria-hidden="true" />
                               {event.category?.name ?? t('event.uncategorized')}

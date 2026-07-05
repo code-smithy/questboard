@@ -390,6 +390,7 @@ export function EventDetailPage() {
         <dl className="details-list">
           <div><dt>{t('event.when')}</dt><dd>{formatDate(event.start_at, event.timezone, locale)} - {formatDate(event.end_at, event.timezone, locale)}</dd></div>
           {event.recurrence_rule && <div><dt>{t('event.recurrence')}</dt><dd>{formatRecurrenceRule(t, event.recurrence_rule)}</dd></div>}
+          <div><dt>{t('form.guild')}</dt><dd>{currentGroup?.name ?? event.group_id}</dd></div>
           <div><dt>{t('event.category')}</dt><dd>{event.categories?.name ?? t('event.uncategorized')}</dd></div>
           <div><dt>{t('event.mode')}</dt><dd>{t(`mode.${event.mode}`)}</dd></div>
           <div><dt>{t('event.status')}</dt><dd>{t(`status.${event.status}`)}</dd></div>
