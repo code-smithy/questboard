@@ -76,13 +76,36 @@ function parseParts(rule: string) {
   }, {});
 }
 
-function formatUntilDate(until: string | undefined) {
-  return until && /^\d{8}T\d{6}Z$/.test(until) ? `${until.slice(0, 4)}-${until.slice(4, 6)}-${until.slice(6, 8)}` : '';
+function toLocalDateTimeInputValue(date: Date) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function formatUntilDateTime(until: string | undefined) {
+  if (!until || !/^\d{8}T\d{6}Z$/.test(until)) return '';
+
+  const date = new Date(`${until.slice(0, 4)}-${until.slice(4, 6)}-${until.slice(6, 8)}T${until.slice(9, 11)}:${until.slice(11, 13)}:${until.slice(13, 15)}.000Z`);
+  return toLocalDateTimeInputValue(date);
+}
+
+function formatUntilRuleValue(until: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(until)) return `${until.replace(/-/g, '')}T235959Z`;
+
+  const date = new Date(until);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function getUntilEnd(until: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(until)
+    ? new Date(`${until}T23:59:59.999`)
+    : new Date(until);
 }
 
 function getEndState(parts: Record<string, string>): Pick<RecurrenceFormState, 'endMode' | 'until' | 'count'> {
   const count = positiveInteger(parts.COUNT, defaultRecurrence.count);
-  const until = formatUntilDate(parts.UNTIL);
+  const until = formatUntilDateTime(parts.UNTIL);
 
   if (parts.COUNT) return { endMode: 'after-count', until: '', count };
   if (until) return { endMode: 'on-date', until, count: defaultRecurrence.count };
@@ -149,7 +172,8 @@ export function buildRecurrenceRule(state: RecurrenceFormState): string | null {
   if (state.endMode === 'after-count') {
     endParts.push(`COUNT=${Math.max(1, Math.floor(state.count))}`);
   } else if (state.endMode === 'on-date' && state.until) {
-    endParts.push(`UNTIL=${state.until.replace(/-/g, '')}T235959Z`);
+    const until = formatUntilRuleValue(state.until);
+    if (until) endParts.push(`UNTIL=${until}`);
   }
 
   if (state.frequency === 'weekly') {
@@ -246,7 +270,7 @@ function getOrdinalWeekdayDate(start: Date, monthOffset: number, ordinal: Recurr
 }
 
 function getGenerationEnd(start: Date, state: RecurrenceFormState) {
-  if (state.endMode === 'on-date' && state.until) return new Date(`${state.until}T23:59:59.999`);
+  if (state.endMode === 'on-date' && state.until) return getUntilEnd(state.until);
   if (state.endMode === 'after-count') return addMonths(start, 1200);
   return addMonths(start, 12);
 }

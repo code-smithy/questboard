@@ -60,4 +60,33 @@ describe('EventForm', () => {
       }));
     });
   });
+
+  it('uses a date and time picker for recurrence end', async () => {
+    render(
+      <EventForm
+        groups={[{
+          id: 'group-1',
+          name: 'Friday Guild',
+          description: null,
+          theme: null,
+          created_at: '2026-07-01T12:00:00.000Z',
+          role: 'regular',
+          joined_at: '2026-07-01T12:00:00.000Z',
+        }]}
+        initialValues={{
+          startAt: '2026-07-06T18:00:00.000Z',
+          endAt: '2026-07-06T21:00:00.000Z',
+          timezone: 'UTC',
+        }}
+        isSubmitting={false}
+        submitLabel="Post quest"
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Repeat pattern'), { target: { value: 'weekly' } });
+    fireEvent.change(screen.getAllByLabelText('Ends')[1], { target: { value: 'on-date' } });
+
+    expect(screen.getByLabelText('End date and time')).toHaveAttribute('type', 'datetime-local');
+  });
 });

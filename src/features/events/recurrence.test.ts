@@ -61,6 +61,9 @@ describe('recurrence', () => {
   });
 
   it('builds recurrence rules with count and until limits', () => {
+    const until = '2026-12-31T20:30';
+    const expectedUntil = new Date(until).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+
     expect(buildRecurrenceRule({
       frequency: 'weekly',
       interval: 1,
@@ -81,9 +84,14 @@ describe('recurrence', () => {
       ordinal: '1',
       weekday: 'MO',
       endMode: 'on-date',
-      until: '2026-12-31',
+      until,
       count: 12,
-    })).toBe('FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=10;UNTIL=20261231T235959Z');
+    })).toBe(`FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=10;UNTIL=${expectedUntil}`);
+
+    expect(parseRecurrenceRule(`FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=10;UNTIL=${expectedUntil}`)).toMatchObject({
+      endMode: 'on-date',
+      until,
+    });
   });
 
   it('parses and formats recurrence summaries', () => {

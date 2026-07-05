@@ -40,6 +40,12 @@ function toLocalInputValue(value?: string) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+function getRecurrenceUntilEnd(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T23:59:59`)
+    : new Date(value);
+}
+
 export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel }: EventFormProps) {
   const { t } = useLanguage();
   const initialStartAt = toLocalInputValue(initialValues?.startAt) || defaultStart;
@@ -193,7 +199,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
     if (
       recurrenceFrequency !== 'none'
       && recurrenceEndMode === 'on-date'
-      && (!recurrenceUntil || new Date(`${recurrenceUntil}T23:59:59`) < new Date(startAt))
+      && (!recurrenceUntil || getRecurrenceUntilEnd(recurrenceUntil) < new Date(startAt))
     ) {
       setErrorMessage(t('form.recurrenceUntilError'));
       return;
@@ -358,7 +364,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
             {recurrenceEndMode === 'on-date' && (
               <label>
                 {t('form.recurrenceUntil')}
-                <input type="date" value={recurrenceUntil} onChange={(event) => setRecurrenceUntil(event.target.value)} />
+                <input type="datetime-local" value={recurrenceUntil} onChange={(event) => setRecurrenceUntil(event.target.value)} />
               </label>
             )}
             {recurrenceEndMode === 'after-count' && (
