@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
+import { usePersistedDisclosureState } from '../../hooks/usePersistedDisclosureState';
 import { useAuth } from '../auth/AuthContext';
 import { getAttendanceSummary, recordEventHistory, setEventRsvp } from '../events/eventApi';
 import type { DueReminder, EventRsvpStatus } from '../events/eventApi';
@@ -130,6 +131,7 @@ export function CalendarPage() {
   const { locale, t } = useLanguage();
   const { dismissReminder, dueReminders } = useReminders();
   const isNarrowViewport = useIsNarrowViewport();
+  const filterDisclosure = usePersistedDisclosureState('calendar.filters', !isNarrowViewport);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
@@ -286,7 +288,7 @@ export function CalendarPage() {
         </section>
       )}
 
-      <details className="collapsible-section filter-disclosure" open={!isNarrowViewport}>
+      <details className="collapsible-section filter-disclosure" {...filterDisclosure}>
         <summary>
           <span>{t('calendar.filters')}</span>
           <span className="filter-summary">{activeFilterLabels.length ? activeFilterLabels.join(' / ') : t('calendar.noActiveFilters')}</span>

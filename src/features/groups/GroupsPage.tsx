@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
+import { usePersistedDisclosureState } from '../../hooks/usePersistedDisclosureState';
 import { useAuth } from '../auth/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
@@ -79,6 +80,11 @@ export function GroupsPage() {
   const canManageInvites = selectedGroup?.role === 'group_admin';
   const canArchiveGroup = selectedGroup?.role === 'group_admin';
   const canManageMembers = selectedGroup?.role === 'group_admin';
+  const createGroupDisclosure = usePersistedDisclosureState('groups.create-group', !isNarrowViewport);
+  const membersDisclosure = usePersistedDisclosureState('groups.members', !isNarrowViewport);
+  const joinRequestsDisclosure = usePersistedDisclosureState('groups.join-requests', !isNarrowViewport || joinRequests.length > 0);
+  const locationsDisclosure = usePersistedDisclosureState('groups.locations', !isNarrowViewport);
+  const invitesDisclosure = usePersistedDisclosureState('groups.invites', !isNarrowViewport);
 
   const formatLimit = useCallback((invite: GroupInvite) => {
     if (!invite.max_uses) return t('groups.unlimitedUses');
@@ -434,7 +440,7 @@ export function GroupsPage() {
       )}
 
       <div className="two-column-layout">
-        <details className="collapsible-section group-disclosure create-group-disclosure" open={!isNarrowViewport}>
+        <details className="collapsible-section group-disclosure create-group-disclosure" {...createGroupDisclosure}>
           <summary>
             <span>{t('groups.createTitle')}</span>
           </summary>
@@ -511,7 +517,7 @@ export function GroupsPage() {
       </div>
 
       {selectedGroup && (
-        <details className="invite-panel collapsible-section group-disclosure" open={!isNarrowViewport}>
+        <details className="invite-panel collapsible-section group-disclosure" {...membersDisclosure}>
           <summary>
             <span>{t('groups.guildMembers', { count: members.length })}</span>
           </summary>
@@ -551,7 +557,7 @@ export function GroupsPage() {
       )}
 
       {selectedGroup && (
-        <details className="invite-panel collapsible-section group-disclosure" open={!isNarrowViewport || joinRequests.length > 0}>
+        <details className="invite-panel collapsible-section group-disclosure" {...joinRequestsDisclosure}>
           <summary>
             <span>{t('groups.pendingJoinRequests', { count: joinRequests.length })}</span>
           </summary>
@@ -604,7 +610,7 @@ export function GroupsPage() {
       )}
 
       {selectedGroup && (
-        <details className="invite-panel collapsible-section group-disclosure" open={!isNarrowViewport}>
+        <details className="invite-panel collapsible-section group-disclosure" {...locationsDisclosure}>
           <summary>
             <span>{t('groups.savedSpots')}</span>
           </summary>
@@ -680,7 +686,7 @@ export function GroupsPage() {
       )}
 
       {selectedGroup && (
-        <details className="invite-panel collapsible-section group-disclosure" open={!isNarrowViewport}>
+        <details className="invite-panel collapsible-section group-disclosure" {...invitesDisclosure}>
           <summary>
             <span>{t('groups.inviteLinks')}</span>
           </summary>

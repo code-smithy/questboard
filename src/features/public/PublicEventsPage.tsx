@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
+import { usePersistedDisclosureState } from '../../hooks/usePersistedDisclosureState';
 import { useAuth } from '../auth/AuthContext';
 import type { CalendarEventMode } from '../calendar/calendarApi';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -110,6 +111,7 @@ export function PublicEventsPage() {
   const { isConfigured, isLoading, user } = useAuth();
   const { locale, t } = useLanguage();
   const isNarrowViewport = useIsNarrowViewport();
+  const filterDisclosure = usePersistedDisclosureState('public-events.filters', !isNarrowViewport);
   const [events, setEvents] = useState<PublicEventCard[]>([]);
   const [selectedMode, setSelectedMode] = useState<'all' | CalendarEventMode>('all');
   const [selectedView, setSelectedView] = useState<PublicBoardView>('list');
@@ -204,7 +206,7 @@ export function PublicEventsPage() {
         {user ? <Link className="login-link" to="/calendar">{t('public.yourCalendar')}</Link> : <Link className="login-link" to="/login">{t('app.nav.login')}</Link>}
       </div>
 
-      <details className="collapsible-section filter-disclosure public-filter-disclosure" open={!isNarrowViewport}>
+      <details className="collapsible-section filter-disclosure public-filter-disclosure" {...filterDisclosure}>
         <summary>
           <span>{t('public.filters')}</span>
           <span className="filter-summary">{activeFilterLabel}</span>

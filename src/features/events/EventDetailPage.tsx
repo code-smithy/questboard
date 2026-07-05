@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
+import { usePersistedDisclosureState } from '../../hooks/usePersistedDisclosureState';
 import { useAuth } from '../auth/AuthContext';
 import { listUserGroups, reviewEventJoinRequest } from '../groups/groupApi';
 import type { GroupSummary } from '../groups/groupApi';
@@ -158,6 +159,9 @@ export function EventDetailPage() {
   const [commentBody, setCommentBody] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isNarrowViewport = useIsNarrowViewport();
+  const secondaryDetailsDisclosure = usePersistedDisclosureState('event-detail.more-details', !isNarrowViewport);
+  const commentsDisclosure = usePersistedDisclosureState('event-detail.all-comments', false);
+  const historyDisclosure = usePersistedDisclosureState('event-detail.history', !isNarrowViewport);
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -414,7 +418,7 @@ export function EventDetailPage() {
           <div><dt>{t('event.online')}</dt><dd>{event.online_details.platform || event.online_details.url || event.online_details.instructions || t('event.noOnline')}</dd></div>
         </dl>
 
-        <details className="collapsible-section event-secondary-details" open={!isNarrowViewport}>
+        <details className="collapsible-section event-secondary-details" {...secondaryDetailsDisclosure}>
           <summary>
             <span>{t('event.moreDetails')}</span>
           </summary>
@@ -543,7 +547,7 @@ export function EventDetailPage() {
               );
             }) : <p className="hint">{t('event.noComments')}</p>}
             {hiddenComments.length > 0 && (
-              <details className="collapsible-section nested-disclosure">
+              <details className="collapsible-section nested-disclosure" {...commentsDisclosure}>
                 <summary>
                   <span>{t('event.showAllComments', { count: event.event_comments.length })}</span>
                 </summary>
@@ -577,7 +581,7 @@ export function EventDetailPage() {
           </button>
         </section>
 
-        <details className="history-panel collapsible-section" open={!isNarrowViewport}>
+        <details className="history-panel collapsible-section" {...historyDisclosure}>
           <summary>
             <div>
               <p className="eyebrow">{t('event.history')}</p>

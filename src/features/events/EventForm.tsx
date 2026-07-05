@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useId, useMemo, useState } from 'react';
 import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
+import { usePersistedDisclosureState } from '../../hooks/usePersistedDisclosureState';
 import { listGroupLocations } from '../groups/groupApi';
 import type { GroupLocation, GroupSummary } from '../groups/groupApi';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -283,6 +284,9 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const usesOfflineDetails = mode === 'offline' || mode === 'hybrid';
   const usesOnlineDetails = mode === 'online' || mode === 'hybrid';
+  const recurrenceDisclosure = usePersistedDisclosureState('event-form.recurrence', !isNarrowViewport || recurrenceFrequency !== 'none');
+  const attendanceDisclosure = usePersistedDisclosureState('event-form.attendance-limits', !isNarrowViewport);
+  const advancedDisclosure = usePersistedDisclosureState('event-form.advanced-details', !isNarrowViewport);
 
   useEffect(() => {
     const loadGroupOptions = async () => {
@@ -508,7 +512,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
           </label>
         </div>
       )}
-      <details className="collapsible-section form-disclosure" open={!isNarrowViewport || recurrenceFrequency !== 'none'}>
+      <details className="collapsible-section form-disclosure" {...recurrenceDisclosure}>
         <summary>
           <span>{t('form.recurrence')}</span>
         </summary>
@@ -608,7 +612,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
           )}
         </fieldset>
       </details>
-      <details className="collapsible-section form-disclosure" open={!isNarrowViewport}>
+      <details className="collapsible-section form-disclosure" {...attendanceDisclosure}>
         <summary>
           <span>{t('form.attendanceLimits')}</span>
         </summary>
@@ -623,7 +627,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
           </label>
         </div>
       </details>
-      <details className="collapsible-section form-disclosure" open={!isNarrowViewport}>
+      <details className="collapsible-section form-disclosure" {...advancedDisclosure}>
         <summary>
           <span>{t('form.advancedDetails')}</span>
         </summary>
