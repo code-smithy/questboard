@@ -1,9 +1,18 @@
 -- Private calendar subscription feeds.
 
+create or replace function public.make_calendar_feed_token()
+returns text
+language sql
+volatile
+set search_path = extensions, public, pg_catalog
+as $$
+  select encode(gen_random_bytes(32), 'hex');
+$$;
+
 create table if not exists public.calendar_feeds (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references public.profiles (id) on delete cascade,
-  token text not null unique default encode(gen_random_bytes(32), 'hex'),
+  token text not null unique default public.make_calendar_feed_token(),
   scope text not null default 'rsvp' check (scope in ('rsvp', 'visible')),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -34,14 +43,6 @@ on public.calendar_feeds for update
 to authenticated
 using (owner_id = auth.uid() or public.is_site_admin())
 with check (owner_id = auth.uid() or public.is_site_admin());
-
-create or replace function public.make_calendar_feed_token()
-returns text
-language sql
-volatile
-as $$
-  select encode(gen_random_bytes(32), 'hex');
-$$;
 
 create or replace function public.ensure_own_calendar_feed(feed_scope text default 'rsvp')
 returns public.calendar_feeds
