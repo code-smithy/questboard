@@ -106,10 +106,14 @@ function formatReminderDate(reminder: DueReminder, locale: string, unknownTimeLa
   }).format(new Date(reminder.events.start_at));
 }
 
-const rsvpOptions: Array<{ status: EventRsvpStatus; labelKey: 'rsvp.attending' | 'rsvp.maybe' | 'rsvp.declined' }> = [
-  { status: 'attending', labelKey: 'rsvp.attending' },
-  { status: 'maybe', labelKey: 'rsvp.maybe' },
-  { status: 'declined', labelKey: 'rsvp.declined' },
+const rsvpOptions: Array<{
+  status: EventRsvpStatus;
+  labelKey: 'rsvp.attending' | 'rsvp.maybe' | 'rsvp.declined';
+  seal: string;
+}> = [
+  { status: 'attending', labelKey: 'rsvp.attending', seal: '✒️' },
+  { status: 'maybe', labelKey: 'rsvp.maybe', seal: '🕯️' },
+  { status: 'declined', labelKey: 'rsvp.declined', seal: '✕' },
 ];
 
 function updateEventRsvp(events: CalendarEvent[], eventId: string, userId: string, status: EventRsvpStatus) {
@@ -449,17 +453,30 @@ export function CalendarPage() {
                           </span>
                         </Link>
                         <div className="rsvp-actions event-rsvp-actions" aria-label={t('event.chooseRsvp')}>
-                          {rsvpOptions.map((option) => (
-                            <button
-                              type="button"
-                              className={currentUserRsvp === option.status ? 'is-selected' : undefined}
-                              disabled={isSavingThisRsvp || (option.status === 'attending' && attendance.isFull && currentUserRsvp !== 'attending')}
-                              key={option.status}
-                              onClick={() => void handleRsvp(event, option.status)}
-                            >
-                              {t(option.labelKey)}
-                            </button>
-                          ))}
+                          {rsvpOptions.map((option) => {
+                            const isSelectedRsvp = currentUserRsvp === option.status;
+                            const className = [
+                              isSelectedRsvp ? 'is-selected' : null,
+                              currentUserRsvp && !isSelectedRsvp ? 'is-muted' : null,
+                            ].filter(Boolean).join(' ') || undefined;
+                            const label = t(option.labelKey);
+
+                            return (
+                              <button
+                                type="button"
+                                aria-label={label}
+                                aria-pressed={isSelectedRsvp}
+                                className={className}
+                                disabled={isSavingThisRsvp || (option.status === 'attending' && attendance.isFull && currentUserRsvp !== 'attending')}
+                                key={option.status}
+                                onClick={() => void handleRsvp(event, option.status)}
+                                title={label}
+                              >
+                                <span aria-hidden="true" className="rsvp-seal-mark">{option.seal}</span>
+                                <span className="sr-only">{label}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </article>
                     );
