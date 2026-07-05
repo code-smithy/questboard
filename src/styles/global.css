@@ -1615,9 +1615,9 @@ nav a:hover {
   border-color: rgba(255, 238, 205, 0.64);
   color: #fffdf7;
   background:
-    radial-gradient(circle at 35% 24%, rgba(255, 245, 220, 0.52), transparent 0.5rem),
+    radial-gradient(circle at 35% 24%, rgba(224, 255, 237, 0.52), transparent 0.5rem),
     radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.16), transparent 1rem),
-    linear-gradient(145deg, #d24b34, #92271f 64%, #541410);
+    linear-gradient(145deg, #318a58, #1c5e39 64%, #11351f);
   box-shadow:
     inset 0 0.1rem 0.16rem rgba(255, 241, 213, 0.34),
     inset 0 -0.3rem 0.5rem rgba(42, 9, 7, 0.38),
@@ -1635,16 +1635,16 @@ nav a:hover {
 
 .event-rsvp-actions button:nth-child(2).is-selected {
   background:
-    radial-gradient(circle at 35% 24%, rgba(255, 246, 205, 0.52), transparent 0.5rem),
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.16), transparent 1rem),
-    linear-gradient(145deg, #d8a53a, #966319 64%, #573209);
+    radial-gradient(circle at 35% 24%, rgba(223, 248, 255, 0.48), transparent 0.5rem),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.14), transparent 1rem),
+    linear-gradient(145deg, #438ca2, #275c6b 64%, #15343d);
 }
 
 .event-rsvp-actions button:nth-child(3).is-selected {
   background:
-    radial-gradient(circle at 35% 24%, rgba(223, 248, 255, 0.48), transparent 0.5rem),
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.14), transparent 1rem),
-    linear-gradient(145deg, #438ca2, #275c6b 64%, #15343d);
+    radial-gradient(circle at 35% 24%, rgba(255, 235, 204, 0.52), transparent 0.5rem),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.16), transparent 1rem),
+    linear-gradient(145deg, #d24b34, #92271f 64%, #541410);
 }
 
 @media (max-width: 720px) {

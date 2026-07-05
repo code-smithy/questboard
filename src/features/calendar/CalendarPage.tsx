@@ -457,7 +457,7 @@ export function CalendarPage() {
                             const isSelectedRsvp = currentUserRsvp === option.status;
                             const className = [
                               isSelectedRsvp ? 'is-selected' : null,
-                              currentUserRsvp && !isSelectedRsvp ? 'is-muted' : null,
+                              !isSelectedRsvp ? 'is-muted' : null,
                             ].filter(Boolean).join(' ') || undefined;
                             const label = t(option.labelKey);
 
