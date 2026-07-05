@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useId, useMemo, useState } from 'react';
 import { listGroupLocations } from '../groups/groupApi';
 import type { GroupLocation, GroupSummary } from '../groups/groupApi';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -28,6 +28,11 @@ type EventFormProps = {
 
 const defaultStart = new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16);
 const defaultEnd = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 16);
+const timeOptions = Array.from({ length: 96 }, (_, index) => {
+  const hours = Math.floor(index / 4);
+  const minutes = (index % 4) * 15;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+});
 
 function toIsoFromLocal(value: string) {
   return new Date(value).toISOString();
@@ -40,14 +45,186 @@ function toLocalInputValue(value?: string) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+function parseLocalDateTimeParts(value: string) {
+  const [date = '', time = ''] = value.split('T');
+  return { date, time: time.slice(0, 5) };
+}
+
+function toDateInputValue(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function parseLocalDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function startOfMonth(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), 1);
+}
+
+function addMonths(value: Date, months: number) {
+  return new Date(value.getFullYear(), value.getMonth() + months, 1);
+}
+
+function getCalendarDates(visibleMonth: Date) {
+  const firstDay = startOfMonth(visibleMonth);
+  const start = new Date(firstDay);
+  start.setDate(firstDay.getDate() - ((firstDay.getDay() + 6) % 7));
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return date;
+  });
+}
+
+function formatDateTimeDisplay(value: string, locale: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+function mergeDateTime(date: string, time: string) {
+  return date ? `${date}T${time || '00:00'}` : '';
+}
+
 function getRecurrenceUntilEnd(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
     ? new Date(`${value}T23:59:59`)
     : new Date(value);
 }
 
-export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel }: EventFormProps) {
+type DateTimePickerProps = {
+  label: string;
+  locale: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  fallbackTime?: string;
+};
+
+function DateTimePicker({ label, locale, value, onChange, required = false, fallbackTime = '00:00' }: DateTimePickerProps) {
+  const labelId = useId();
+  const valueId = useId();
   const { t } = useLanguage();
+  const { date, time } = parseLocalDateTimeParts(value);
+  const selectedDate = date ? parseLocalDate(date) : null;
+  const [isOpen, setIsOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(selectedDate ?? new Date()));
+  const displayValue = formatDateTimeDisplay(value, locale) || t('form.dateTimeEmpty');
+  const monthLabel = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(visibleMonth);
+  const weekdays = useMemo(() => {
+    const monday = new Date(2026, 0, 5);
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + index);
+      return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date);
+    });
+  }, [locale]);
+  const selectedTime = time || fallbackTime;
+  const selectOptions = selectedTime && !timeOptions.includes(selectedTime)
+    ? [...timeOptions, selectedTime].sort()
+    : timeOptions;
+
+  useEffect(() => {
+    const nextSelectedDate = date ? parseLocalDate(date) : null;
+    if (nextSelectedDate) setVisibleMonth(startOfMonth(nextSelectedDate));
+  }, [date]);
+
+  const handleDateChange = (nextDate: string) => {
+    onChange(mergeDateTime(nextDate, time || fallbackTime));
+  };
+
+  const handleTimeChange = (nextTime: string) => {
+    const nextDate = date || toDateInputValue(new Date());
+    onChange(mergeDateTime(nextDate, nextTime));
+  };
+
+  return (
+    <div className="date-time-picker">
+      <span id={labelId} className="date-time-label">
+        {label}
+        {required && <span aria-hidden="true"> *</span>}
+      </span>
+      <button
+        type="button"
+        className="date-time-trigger"
+        aria-expanded={isOpen}
+        aria-labelledby={`${labelId} ${valueId}`}
+        onClick={() => setIsOpen((currentIsOpen) => !currentIsOpen)}
+      >
+        <span id={valueId}>{displayValue}</span>
+      </button>
+      {isOpen && (
+        <div className="date-time-popover">
+          <div className="date-time-month-nav">
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={t('calendar.previousMonth')}
+              onClick={() => setVisibleMonth((currentMonth) => addMonths(currentMonth, -1))}
+            >
+              {'<'}
+            </button>
+            <strong>{monthLabel}</strong>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={t('calendar.nextMonth')}
+              onClick={() => setVisibleMonth((currentMonth) => addMonths(currentMonth, 1))}
+            >
+              {'>'}
+            </button>
+          </div>
+          <div className="date-time-calendar-grid">
+            {weekdays.map((weekday) => (
+              <span key={weekday} className="date-time-weekday">{weekday}</span>
+            ))}
+            {getCalendarDates(visibleMonth).map((calendarDate) => {
+              const dateValue = toDateInputValue(calendarDate);
+              const isSelected = dateValue === date;
+              const isOutsideMonth = calendarDate.getMonth() !== visibleMonth.getMonth();
+
+              return (
+                <button
+                  type="button"
+                  key={dateValue}
+                  className="date-time-day"
+                  data-outside-month={isOutsideMonth}
+                  aria-pressed={isSelected}
+                  onClick={() => handleDateChange(dateValue)}
+                >
+                  {calendarDate.getDate()}
+                </button>
+              );
+            })}
+          </div>
+          <label className="date-time-time-field">
+            {t('form.time')}
+            <select value={selectedTime} onChange={(event) => handleTimeChange(event.target.value)}>
+              {selectOptions.map((timeOption) => (
+                <option key={timeOption} value={timeOption}>{timeOption}</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="secondary-button date-time-done" onClick={() => setIsOpen(false)}>
+            {t('form.done')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel }: EventFormProps) {
+  const { locale, t } = useLanguage();
   const initialStartAt = toLocalInputValue(initialValues?.startAt) || defaultStart;
   const initialRecurrence = parseRecurrenceRule(initialValues?.recurrenceRule);
   const initialOrdinalWeekday = getOrdinalWeekday(initialStartAt);
@@ -266,14 +443,8 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
       </label>
       <div className="inline-form two-up">
-        <label>
-          {t('form.starts')}
-          <input type="datetime-local" value={startAt} onChange={(event) => setStartAt(event.target.value)} required />
-        </label>
-        <label>
-          {t('form.ends')}
-          <input type="datetime-local" value={endAt} onChange={(event) => setEndAt(event.target.value)} required />
-        </label>
+        <DateTimePicker label={t('form.starts')} locale={locale} value={startAt} onChange={setStartAt} required fallbackTime="18:00" />
+        <DateTimePicker label={t('form.ends')} locale={locale} value={endAt} onChange={setEndAt} required fallbackTime="21:00" />
       </div>
       <label>
         {t('form.timezone')}
@@ -362,10 +533,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
               </select>
             </label>
             {recurrenceEndMode === 'on-date' && (
-              <label>
-                {t('form.recurrenceUntil')}
-                <input type="datetime-local" value={recurrenceUntil} onChange={(event) => setRecurrenceUntil(event.target.value)} />
-              </label>
+              <DateTimePicker label={t('form.recurrenceUntil')} locale={locale} value={recurrenceUntil} onChange={setRecurrenceUntil} fallbackTime="23:59" />
             )}
             {recurrenceEndMode === 'after-count' && (
               <label>
