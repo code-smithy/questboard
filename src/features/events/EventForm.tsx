@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useId, useMemo, useState } from 'react';
+import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
 import { listGroupLocations } from '../groups/groupApi';
 import type { GroupLocation, GroupSummary } from '../groups/groupApi';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -238,6 +239,7 @@ function DateTimePicker({ label, locale, value, onChange, required = false, fall
 
 export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel, defaultDurationHours }: EventFormProps) {
   const { locale, t } = useLanguage();
+  const isNarrowViewport = useIsNarrowViewport();
   const normalizedDefaultDurationHours = normalizeDefaultDurationHours(defaultDurationHours);
   const defaultStart = toLocalInputValueFromDate(new Date(Date.now() + 60 * 60 * 1000));
   const initialStartAt = toLocalInputValue(initialValues?.startAt) || defaultStart;
@@ -279,6 +281,8 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
   const [visibility, setVisibility] = useState<EventVisibility>(initialValues?.visibility ?? 'private');
   const [status, setStatus] = useState<Exclude<EventStatus, 'archived'>>(initialValues?.status ?? 'open');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const usesOfflineDetails = mode === 'offline' || mode === 'hybrid';
+  const usesOnlineDetails = mode === 'online' || mode === 'hybrid';
 
   useEffect(() => {
     const loadGroupOptions = async () => {
@@ -459,174 +463,197 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
         {t('form.title')}
         <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} required />
       </label>
-      <label>
-        {t('form.description')}
-        <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
-      </label>
       <div className="inline-form two-up">
         <DateTimePicker label={t('form.starts')} locale={locale} value={startAt} onChange={handleStartAtChange} required fallbackTime="18:00" />
         <DateTimePicker label={t('form.ends')} locale={locale} value={endAt} onChange={setEndAt} required fallbackTime="21:00" />
       </div>
       <label>
-        {t('form.timezone')}
-        <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
-      </label>
-      <fieldset className="recurrence-fieldset">
-        <legend>{t('form.recurrence')}</legend>
-        <label>
-          {t('form.recurrencePattern')}
-          <select value={recurrenceFrequency} onChange={(event) => handleRecurrenceFrequencyChange(event.target.value as RecurrenceFrequency)}>
-            <option value="none">{t('recurrence.none')}</option>
-            <option value="weekly">{t('recurrence.weekly')}</option>
-            <option value="monthly-date">{t('recurrence.monthlyDate')}</option>
-            <option value="monthly-weekday">{t('recurrence.monthlyWeekday')}</option>
-          </select>
-        </label>
-        {recurrenceFrequency === 'weekly' && (
-          <>
-            <label>
-              {t('form.recurrenceIntervalWeeks')}
-              <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
-            </label>
-            <fieldset className="checkbox-fieldset">
-              <legend>{t('form.recurrenceWeekdays')}</legend>
-              <div className="weekday-grid">
-                {recurrenceWeekdays.map((weekday) => (
-                  <label key={weekday}>
-                    <input
-                      type="checkbox"
-                      checked={recurrenceWeekdaySelections.includes(weekday)}
-                      onChange={(event) => handleRecurrenceWeekdayChange(weekday, event.target.checked)}
-                    />
-                    <span>{t(`weekday.${weekday}`)}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </>
-        )}
-        {recurrenceFrequency === 'monthly-date' && (
-          <div className="inline-form two-up">
-            <label>
-              {t('form.recurrenceIntervalMonths')}
-              <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
-            </label>
-            <label>
-              {t('form.recurrenceMonthDay')}
-              <input type="number" min="1" max="31" step="1" value={recurrenceMonthDay} onChange={(event) => setRecurrenceMonthDay(event.target.value)} />
-            </label>
-          </div>
-        )}
-        {recurrenceFrequency === 'monthly-weekday' && (
-          <>
-            <label>
-              {t('form.recurrenceIntervalMonths')}
-              <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
-            </label>
-            <div className="inline-form two-up">
-              <label>
-                {t('form.recurrenceOrdinal')}
-                <select value={recurrenceOrdinal} onChange={(event) => setRecurrenceOrdinal(event.target.value as RecurrenceOrdinal)}>
-                  {recurrenceOrdinalOptions.map((ordinal) => (
-                    <option key={ordinal} value={ordinal}>{t(`ordinal.${ordinal}`)}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t('form.recurrenceWeekday')}
-                <select value={recurrenceWeekday} onChange={(event) => setRecurrenceWeekday(event.target.value as RecurrenceWeekday)}>
-                  {recurrenceWeekdays.map((weekday) => (
-                    <option key={weekday} value={weekday}>{t(`weekday.${weekday}`)}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </>
-        )}
-        {recurrenceFrequency !== 'none' && (
-          <>
-            <label>
-              {t('form.recurrenceEnds')}
-              <select value={recurrenceEndMode} onChange={(event) => setRecurrenceEndMode(event.target.value as RecurrenceEndMode)}>
-                <option value="rolling">{t('recurrence.end.rolling')}</option>
-                <option value="on-date">{t('recurrence.end.onDate')}</option>
-                <option value="after-count">{t('recurrence.end.afterCount')}</option>
-              </select>
-            </label>
-            {recurrenceEndMode === 'on-date' && (
-              <DateTimePicker label={t('form.recurrenceUntil')} locale={locale} value={recurrenceUntil} onChange={setRecurrenceUntil} fallbackTime="23:59" />
-            )}
-            {recurrenceEndMode === 'after-count' && (
-              <label>
-                {t('form.recurrenceCount')}
-                <input type="number" min="2" max="100" step="1" value={recurrenceCount} onChange={(event) => setRecurrenceCount(event.target.value)} />
-              </label>
-            )}
-            {recurrenceEndMode === 'rolling' && <p className="hint">{t('form.recurrenceRollingHint')}</p>}
-          </>
-        )}
-      </fieldset>
-      <div className="inline-form three-up">
-        <label>
-          {t('form.mode')}
-          <select value={mode} onChange={(event) => setMode(event.target.value as EventMode)}>
-            <option value="offline">{t('mode.offline')}</option>
-            <option value="online">{t('mode.online')}</option>
-            <option value="hybrid">{t('mode.hybrid')}</option>
-          </select>
-        </label>
-        <label>
-          {t('form.visibility')}
-          <select value={visibility} onChange={(event) => setVisibility(event.target.value as EventVisibility)}>
-            <option value="private">{t('visibility.private')}</option>
-            <option value="public">{t('visibility.public')}</option>
-          </select>
-        </label>
-        <label>
-          {t('form.status')}
-          <select value={status} onChange={(event) => setStatus(event.target.value as Exclude<EventStatus, 'archived'>)}>
-            <option value="draft">{t('status.draft')}</option>
-            <option value="open">{t('status.open')}</option>
-            <option value="confirmed">{t('status.confirmed')}</option>
-            <option value="cancelled">{t('status.cancelled')}</option>
-          </select>
-        </label>
-      </div>
-      <label>
-        {t('form.savedLocation')}
-        <select value={locationId} onChange={(event) => setLocationId(event.target.value)}>
-          <option value="">{t('form.oneOffLocation')}</option>
-          {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+        {t('form.mode')}
+        <select value={mode} onChange={(event) => setMode(event.target.value as EventMode)}>
+          <option value="offline">{t('mode.offline')}</option>
+          <option value="online">{t('mode.online')}</option>
+          <option value="hybrid">{t('mode.hybrid')}</option>
         </select>
       </label>
-      <label>
-        {t('form.locationNotes')}
-        <input value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder={t('form.locationPlaceholder')} />
-      </label>
-      <div className="inline-form two-up">
+      {usesOfflineDetails && (
+        <div className="form-section-grid">
+          <label>
+            {t('form.savedLocation')}
+            <select value={locationId} onChange={(event) => setLocationId(event.target.value)}>
+              <option value="">{t('form.oneOffLocation')}</option>
+              {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+            </select>
+          </label>
+          <label>
+            {t('form.locationNotes')}
+            <input value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder={t('form.locationPlaceholder')} />
+          </label>
+        </div>
+      )}
+      {usesOnlineDetails && (
+        <div className="form-section-grid">
+          <div className="inline-form two-up">
+            <label>
+              {t('form.onlinePlatform')}
+              <input value={onlinePlatform} onChange={(event) => setOnlinePlatform(event.target.value)} placeholder={t('form.onlinePlatformPlaceholder')} />
+            </label>
+            <label>
+              {t('form.onlineUrl')}
+              <input value={onlineUrl} onChange={(event) => setOnlineUrl(event.target.value)} placeholder="https://..." />
+            </label>
+          </div>
+          <label>
+            {t('form.onlineInstructions')}
+            <textarea value={onlineInstructions} onChange={(event) => setOnlineInstructions(event.target.value)} rows={3} />
+          </label>
+        </div>
+      )}
+      <details className="collapsible-section form-disclosure" open={!isNarrowViewport || recurrenceFrequency !== 'none'}>
+        <summary>
+          <span>{t('form.recurrence')}</span>
+        </summary>
+        <fieldset className="recurrence-fieldset">
+          <legend>{t('form.recurrence')}</legend>
+          <label>
+            {t('form.recurrencePattern')}
+            <select value={recurrenceFrequency} onChange={(event) => handleRecurrenceFrequencyChange(event.target.value as RecurrenceFrequency)}>
+              <option value="none">{t('recurrence.none')}</option>
+              <option value="weekly">{t('recurrence.weekly')}</option>
+              <option value="monthly-date">{t('recurrence.monthlyDate')}</option>
+              <option value="monthly-weekday">{t('recurrence.monthlyWeekday')}</option>
+            </select>
+          </label>
+          {recurrenceFrequency === 'weekly' && (
+            <>
+              <label>
+                {t('form.recurrenceIntervalWeeks')}
+                <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
+              </label>
+              <fieldset className="checkbox-fieldset">
+                <legend>{t('form.recurrenceWeekdays')}</legend>
+                <div className="weekday-grid">
+                  {recurrenceWeekdays.map((weekday) => (
+                    <label key={weekday}>
+                      <input
+                        type="checkbox"
+                        checked={recurrenceWeekdaySelections.includes(weekday)}
+                        onChange={(event) => handleRecurrenceWeekdayChange(weekday, event.target.checked)}
+                      />
+                      <span>{t(`weekday.${weekday}`)}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </>
+          )}
+          {recurrenceFrequency === 'monthly-date' && (
+            <div className="inline-form two-up">
+              <label>
+                {t('form.recurrenceIntervalMonths')}
+                <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
+              </label>
+              <label>
+                {t('form.recurrenceMonthDay')}
+                <input type="number" min="1" max="31" step="1" value={recurrenceMonthDay} onChange={(event) => setRecurrenceMonthDay(event.target.value)} />
+              </label>
+            </div>
+          )}
+          {recurrenceFrequency === 'monthly-weekday' && (
+            <>
+              <label>
+                {t('form.recurrenceIntervalMonths')}
+                <input type="number" min="1" step="1" value={recurrenceInterval} onChange={(event) => setRecurrenceInterval(event.target.value)} />
+              </label>
+              <div className="inline-form two-up">
+                <label>
+                  {t('form.recurrenceOrdinal')}
+                  <select value={recurrenceOrdinal} onChange={(event) => setRecurrenceOrdinal(event.target.value as RecurrenceOrdinal)}>
+                    {recurrenceOrdinalOptions.map((ordinal) => (
+                      <option key={ordinal} value={ordinal}>{t(`ordinal.${ordinal}`)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t('form.recurrenceWeekday')}
+                  <select value={recurrenceWeekday} onChange={(event) => setRecurrenceWeekday(event.target.value as RecurrenceWeekday)}>
+                    {recurrenceWeekdays.map((weekday) => (
+                      <option key={weekday} value={weekday}>{t(`weekday.${weekday}`)}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </>
+          )}
+          {recurrenceFrequency !== 'none' && (
+            <>
+              <label>
+                {t('form.recurrenceEnds')}
+                <select value={recurrenceEndMode} onChange={(event) => setRecurrenceEndMode(event.target.value as RecurrenceEndMode)}>
+                  <option value="rolling">{t('recurrence.end.rolling')}</option>
+                  <option value="on-date">{t('recurrence.end.onDate')}</option>
+                  <option value="after-count">{t('recurrence.end.afterCount')}</option>
+                </select>
+              </label>
+              {recurrenceEndMode === 'on-date' && (
+                <DateTimePicker label={t('form.recurrenceUntil')} locale={locale} value={recurrenceUntil} onChange={setRecurrenceUntil} fallbackTime="23:59" />
+              )}
+              {recurrenceEndMode === 'after-count' && (
+                <label>
+                  {t('form.recurrenceCount')}
+                  <input type="number" min="2" max="100" step="1" value={recurrenceCount} onChange={(event) => setRecurrenceCount(event.target.value)} />
+                </label>
+              )}
+              {recurrenceEndMode === 'rolling' && <p className="hint">{t('form.recurrenceRollingHint')}</p>}
+            </>
+          )}
+        </fieldset>
+      </details>
+      <details className="collapsible-section form-disclosure" open={!isNarrowViewport}>
+        <summary>
+          <span>{t('form.attendanceLimits')}</span>
+        </summary>
+        <div className="inline-form two-up">
+          <label>
+            {t('form.minAttendees')}
+            <input type="number" min="0" step="1" value={minimumAttendees} onChange={(event) => setMinimumAttendees(event.target.value)} />
+          </label>
+          <label>
+            {t('form.maxAttendees')}
+            <input type="number" min="1" step="1" value={maximumAttendees} onChange={(event) => setMaximumAttendees(event.target.value)} placeholder={t('form.noLimit')} />
+          </label>
+        </div>
+      </details>
+      <details className="collapsible-section form-disclosure" open={!isNarrowViewport}>
+        <summary>
+          <span>{t('form.advancedDetails')}</span>
+        </summary>
+        <div className="inline-form three-up">
+          <label>
+            {t('form.timezone')}
+            <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
+          </label>
+          <label>
+            {t('form.visibility')}
+            <select value={visibility} onChange={(event) => setVisibility(event.target.value as EventVisibility)}>
+              <option value="private">{t('visibility.private')}</option>
+              <option value="public">{t('visibility.public')}</option>
+            </select>
+          </label>
+          <label>
+            {t('form.status')}
+            <select value={status} onChange={(event) => setStatus(event.target.value as Exclude<EventStatus, 'archived'>)}>
+              <option value="draft">{t('status.draft')}</option>
+              <option value="open">{t('status.open')}</option>
+              <option value="confirmed">{t('status.confirmed')}</option>
+              <option value="cancelled">{t('status.cancelled')}</option>
+            </select>
+          </label>
+        </div>
         <label>
-          {t('form.onlinePlatform')}
-          <input value={onlinePlatform} onChange={(event) => setOnlinePlatform(event.target.value)} placeholder={t('form.onlinePlatformPlaceholder')} />
+          {t('form.description')}
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
         </label>
-        <label>
-          {t('form.onlineUrl')}
-          <input value={onlineUrl} onChange={(event) => setOnlineUrl(event.target.value)} placeholder="https://..." />
-        </label>
-      </div>
-      <label>
-        {t('form.onlineInstructions')}
-        <textarea value={onlineInstructions} onChange={(event) => setOnlineInstructions(event.target.value)} rows={3} />
-      </label>
-      <div className="inline-form two-up">
-        <label>
-          {t('form.minAttendees')}
-          <input type="number" min="0" step="1" value={minimumAttendees} onChange={(event) => setMinimumAttendees(event.target.value)} />
-        </label>
-        <label>
-          {t('form.maxAttendees')}
-          <input type="number" min="1" step="1" value={maximumAttendees} onChange={(event) => setMaximumAttendees(event.target.value)} placeholder={t('form.noLimit')} />
-        </label>
-      </div>
+      </details>
       <button type="submit" disabled={isSubmitting}>{isSubmitting ? t('form.saving') : submitLabel}</button>
     </form>
   );

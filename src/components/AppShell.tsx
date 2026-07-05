@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useIsNarrowViewport } from '../hooks/useIsNarrowViewport';
 import { useAuth } from '../features/auth/AuthContext';
 import { useLanguage } from '../features/i18n/LanguageContext';
 import { useReminders } from '../features/reminders/ReminderContext';
@@ -15,6 +16,7 @@ export function AppShell() {
   const { profile, signOut, user } = useAuth();
   const { t } = useLanguage();
   const { dueReminders } = useReminders();
+  const isNarrowViewport = useIsNarrowViewport();
   const reminderCount = dueReminders.length;
   const avatarLabel = profile?.display_name ?? user?.email ?? t('app.signedIn');
 
@@ -26,7 +28,7 @@ export function AppShell() {
           <h1>Questboard</h1>
         </div>
         <div className="header-actions">
-          <nav aria-label="Primary navigation">
+          <nav className="desktop-nav" aria-label="Primary navigation">
             {navItems.map((item) => (
               <NavLink key={item.to} to={item.to}>
                 {t(item.labelKey)}
@@ -62,6 +64,15 @@ export function AppShell() {
       <main>
         <Outlet />
       </main>
+      {isNarrowViewport && (
+        <nav className="mobile-bottom-nav" aria-label="Primary navigation">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to}>
+              {item.to === '/events/new' ? '+' : t(item.labelKey)}
+            </NavLink>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }

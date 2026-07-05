@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
 import { useAuth } from '../auth/AuthContext';
 import { listUserGroups, reviewEventJoinRequest } from '../groups/groupApi';
 import type { GroupSummary } from '../groups/groupApi';
@@ -156,6 +157,7 @@ export function EventDetailPage() {
   const [reviewingJoinRequestId, setReviewingJoinRequestId] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isNarrowViewport = useIsNarrowViewport();
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -381,19 +383,16 @@ export function EventDetailPage() {
     const canReviewJoinRequests = event.owner_id === user.id || currentGroup?.role === 'group_admin';
     const locationMapHref = getLocationMapHref(event);
     const isRecurringEvent = Boolean(event.recurrence_rule || event.recurrence_parent_id);
+    const visibleComments = event.event_comments.slice(0, 3);
+    const hiddenComments = event.event_comments.slice(3);
 
     return (
-      <section className="panel">
+      <section className="panel event-detail-panel">
         <p className="eyebrow">{t('event.detailEyebrow')}</p>
         {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
         <h2>{event.title}</h2>
         <dl className="details-list">
           <div><dt>{t('event.when')}</dt><dd>{formatDate(event.start_at, event.timezone, locale)} - {formatDate(event.end_at, event.timezone, locale)}</dd></div>
-          {event.recurrence_rule && <div><dt>{t('event.recurrence')}</dt><dd>{formatRecurrenceRule(t, event.recurrence_rule)}</dd></div>}
-          <div><dt>{t('form.guild')}</dt><dd>{currentGroup?.name ?? event.group_id}</dd></div>
-          <div><dt>{t('event.category')}</dt><dd>{event.categories?.name ?? t('event.uncategorized')}</dd></div>
-          <div><dt>{t('event.mode')}</dt><dd>{t(`mode.${event.mode}`)}</dd></div>
-          <div><dt>{t('event.status')}</dt><dd>{t(`status.${event.status}`)}</dd></div>
           <div>
             <dt>{t('event.attendance')}</dt>
             <dd>{formatAttendanceLabel(t, { ...attendance, maximumAttendees: event.maximum_attendees, status: event.status })}</dd>
@@ -413,8 +412,21 @@ export function EventDetailPage() {
             </dd>
           </div>
           <div><dt>{t('event.online')}</dt><dd>{event.online_details.platform || event.online_details.url || event.online_details.instructions || t('event.noOnline')}</dd></div>
-          <div><dt>{t('event.description')}</dt><dd>{event.description ?? t('event.noDescription')}</dd></div>
         </dl>
+
+        <details className="collapsible-section event-secondary-details" open={!isNarrowViewport}>
+          <summary>
+            <span>{t('event.moreDetails')}</span>
+          </summary>
+          <dl className="details-list secondary-details-list">
+            {event.recurrence_rule && <div><dt>{t('event.recurrence')}</dt><dd>{formatRecurrenceRule(t, event.recurrence_rule)}</dd></div>}
+            <div><dt>{t('form.guild')}</dt><dd>{currentGroup?.name ?? event.group_id}</dd></div>
+            <div><dt>{t('event.category')}</dt><dd>{event.categories?.name ?? t('event.uncategorized')}</dd></div>
+            <div><dt>{t('event.mode')}</dt><dd>{t(`mode.${event.mode}`)}</dd></div>
+            <div><dt>{t('event.status')}</dt><dd>{t(`status.${event.status}`)}</dd></div>
+            <div><dt>{t('event.description')}</dt><dd>{event.description ?? t('event.noDescription')}</dd></div>
+          </dl>
+        </details>
 
         <section className="rsvp-panel" aria-labelledby="rsvp-heading">
           <div>
@@ -512,7 +524,7 @@ export function EventDetailPage() {
             <h3 id="comments-heading">{t('event.comments')}</h3>
           </div>
           <div className="comment-list">
-            {event.event_comments.length ? event.event_comments.map((comment) => {
+            {visibleComments.length ? visibleComments.map((comment) => {
               const canArchiveComment = comment.user_id === user.id || canModerateComments;
 
               return (
@@ -530,6 +542,31 @@ export function EventDetailPage() {
                 </article>
               );
             }) : <p className="hint">{t('event.noComments')}</p>}
+            {hiddenComments.length > 0 && (
+              <details className="collapsible-section nested-disclosure">
+                <summary>
+                  <span>{t('event.showAllComments', { count: event.event_comments.length })}</span>
+                </summary>
+                {hiddenComments.map((comment) => {
+                  const canArchiveComment = comment.user_id === user.id || canModerateComments;
+
+                  return (
+                    <article className="comment-item" key={comment.id}>
+                      <div>
+                        <strong>{comment.profiles?.display_name ?? t('event.unknownMember')}</strong>
+                        <time dateTime={comment.created_at}>{formatDate(comment.created_at, event.timezone, locale)}</time>
+                      </div>
+                      <p>{comment.body}</p>
+                      {canArchiveComment && (
+                        <button type="button" className="secondary-button" onClick={() => void handleArchiveComment(comment.id)}>
+                          {t('event.archiveComment')}
+                        </button>
+                      )}
+                    </article>
+                  );
+                })}
+              </details>
+            )}
           </div>
           <label>
             {t('event.addComment')}
@@ -540,26 +577,30 @@ export function EventDetailPage() {
           </button>
         </section>
 
-        <section className="history-panel" aria-labelledby="history-heading">
-          <div>
-            <p className="eyebrow">{t('event.history')}</p>
-            <h3 id="history-heading">{t('event.changes')}</h3>
+        <details className="history-panel collapsible-section" open={!isNarrowViewport}>
+          <summary>
+            <div>
+              <p className="eyebrow">{t('event.history')}</p>
+              <h3 id="history-heading">{t('event.historyCount', { count: event.event_history.length })}</h3>
+            </div>
+          </summary>
+          <div className="disclosure-body" aria-labelledby="history-heading">
+            {event.event_history.length ? (
+              <ol className="history-list">
+                {event.event_history.map((entry) => (
+                  <li key={entry.id}>
+                    <span>{formatHistoryLabel(entry.change_type)}</span>
+                    <small>
+                      {entry.profiles?.display_name ?? t('event.system')} - {formatDate(entry.created_at, event.timezone, locale)}
+                    </small>
+                  </li>
+                ))}
+              </ol>
+            ) : <p className="hint">{t('event.noChanges')}</p>}
           </div>
-          {event.event_history.length ? (
-            <ol className="history-list">
-              {event.event_history.map((entry) => (
-                <li key={entry.id}>
-                  <span>{formatHistoryLabel(entry.change_type)}</span>
-                  <small>
-                    {entry.profiles?.display_name ?? t('event.system')} - {formatDate(entry.created_at, event.timezone, locale)}
-                  </small>
-                </li>
-              ))}
-            </ol>
-          ) : <p className="hint">{t('event.noChanges')}</p>}
-        </section>
+        </details>
 
-        <div className="button-row">
+        <div className="button-row event-detail-actions">
           <button type="button" onClick={() => setIsEditing(true)}>{t('event.editQuest')}</button>
           <button type="button" className="secondary-button" onClick={handleDownloadIcs}>{t('event.downloadIcs')}</button>
           <button type="button" className="secondary-button" onClick={handleArchive} disabled={isSubmitting}>

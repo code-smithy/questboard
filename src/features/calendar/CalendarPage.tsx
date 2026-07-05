@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
 import { useAuth } from '../auth/AuthContext';
 import { getAttendanceSummary, recordEventHistory, setEventRsvp } from '../events/eventApi';
 import type { DueReminder, EventRsvpStatus } from '../events/eventApi';
@@ -128,6 +129,7 @@ export function CalendarPage() {
   const userId = user?.id ?? null;
   const { locale, t } = useLanguage();
   const { dismissReminder, dueReminders } = useReminders();
+  const isNarrowViewport = useIsNarrowViewport();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
@@ -236,6 +238,11 @@ export function CalendarPage() {
     days[dayKey] = [...(days[dayKey] ?? []), event];
     return days;
   }, {}), [filteredEvents]);
+  const activeFilterLabels = [
+    selectedGroupId === 'all' ? null : groups.find((group) => group.id === selectedGroupId)?.name,
+    selectedCategory === 'all' ? null : selectedCategory,
+    selectedMode === 'all' ? null : t(`mode.${selectedMode}`),
+  ].filter(Boolean);
 
   const showPreviousMonth = () => {
     const [year, month] = focusedMonth.split('-').map(Number);
@@ -279,31 +286,37 @@ export function CalendarPage() {
         </section>
       )}
 
-      <div className="filter-bar" aria-label={t('calendar.filters')}>
-        <label>
-          {t('calendar.guild')}
-          <select value={selectedGroupId} onChange={(event) => setSelectedGroupId(event.target.value)}>
-            <option value="all">{t('calendar.allGuilds')}</option>
-            {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-          </select>
-        </label>
-        <label>
-          {t('calendar.category')}
-          <select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)}>
-            <option value="all">{t('calendar.allCategories')}</option>
-            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-          </select>
-        </label>
-        <label>
-          {t('calendar.mode')}
-          <select value={selectedMode} onChange={(event) => setSelectedMode(event.target.value as 'all' | CalendarEventMode)}>
-            <option value="all">{t('calendar.allModes')}</option>
-            <option value="online">{t('mode.online')}</option>
-            <option value="offline">{t('mode.offline')}</option>
-            <option value="hybrid">{t('mode.hybrid')}</option>
-          </select>
-        </label>
-      </div>
+      <details className="collapsible-section filter-disclosure" open={!isNarrowViewport}>
+        <summary>
+          <span>{t('calendar.filters')}</span>
+          <span className="filter-summary">{activeFilterLabels.length ? activeFilterLabels.join(' / ') : t('calendar.noActiveFilters')}</span>
+        </summary>
+        <div className="filter-bar" aria-label={t('calendar.filters')}>
+          <label>
+            {t('calendar.guild')}
+            <select value={selectedGroupId} onChange={(event) => setSelectedGroupId(event.target.value)}>
+              <option value="all">{t('calendar.allGuilds')}</option>
+              {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+            </select>
+          </label>
+          <label>
+            {t('calendar.category')}
+            <select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)}>
+              <option value="all">{t('calendar.allCategories')}</option>
+              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+          </label>
+          <label>
+            {t('calendar.mode')}
+            <select value={selectedMode} onChange={(event) => setSelectedMode(event.target.value as 'all' | CalendarEventMode)}>
+              <option value="all">{t('calendar.allModes')}</option>
+              <option value="online">{t('mode.online')}</option>
+              <option value="offline">{t('mode.offline')}</option>
+              <option value="hybrid">{t('mode.hybrid')}</option>
+            </select>
+          </label>
+        </div>
+      </details>
 
       <div className="calendar-view-bar" aria-label={t('calendar.viewLabel')}>
         <div className="view-tabs" role="tablist" aria-label={t('calendar.viewLabel')}>
@@ -420,7 +433,7 @@ export function CalendarPage() {
                             <span className="event-status-badge" data-status={event.status}>{t(`status.${event.status}`)}</span>
                           </span>
                           <span className="event-title">{event.title}</span>
-                          <span className="event-meta">
+                          <span className="event-meta event-card-meta-line">
                             {event.group_name} -{' '}
                             <span className="event-category-label">
                               <span className="event-category-swatch" aria-hidden="true" />

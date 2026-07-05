@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
 import { useAuth } from '../auth/AuthContext';
 import type { CalendarEventMode } from '../calendar/calendarApi';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -108,6 +109,7 @@ function getSafeOnlineUrl(event: PublicEventCard) {
 export function PublicEventsPage() {
   const { isConfigured, isLoading, user } = useAuth();
   const { locale, t } = useLanguage();
+  const isNarrowViewport = useIsNarrowViewport();
   const [events, setEvents] = useState<PublicEventCard[]>([]);
   const [selectedMode, setSelectedMode] = useState<'all' | CalendarEventMode>('all');
   const [selectedView, setSelectedView] = useState<PublicBoardView>('list');
@@ -162,6 +164,7 @@ export function PublicEventsPage() {
     days[dayKey] = [...(days[dayKey] ?? []), event];
     return days;
   }, {}), [filteredEvents]);
+  const activeFilterLabel = selectedMode === 'all' ? t('calendar.noActiveFilters') : t(`mode.${selectedMode}`);
 
   const showPreviousMonth = () => {
     const [year, month] = focusedMonth.split('-').map(Number);
@@ -201,17 +204,23 @@ export function PublicEventsPage() {
         {user ? <Link className="login-link" to="/calendar">{t('public.yourCalendar')}</Link> : <Link className="login-link" to="/login">{t('app.nav.login')}</Link>}
       </div>
 
-      <div className="filter-bar public-filter-bar" aria-label={t('public.filters')}>
-        <label>
-          {t('calendar.mode')}
-          <select value={selectedMode} onChange={(event) => setSelectedMode(event.target.value as 'all' | CalendarEventMode)}>
-            <option value="all">{t('calendar.allModes')}</option>
-            <option value="online">{t('mode.online')}</option>
-            <option value="offline">{t('mode.offline')}</option>
-            <option value="hybrid">{t('mode.hybrid')}</option>
-          </select>
-        </label>
-      </div>
+      <details className="collapsible-section filter-disclosure public-filter-disclosure" open={!isNarrowViewport}>
+        <summary>
+          <span>{t('public.filters')}</span>
+          <span className="filter-summary">{activeFilterLabel}</span>
+        </summary>
+        <div className="filter-bar public-filter-bar" aria-label={t('public.filters')}>
+          <label>
+            {t('calendar.mode')}
+            <select value={selectedMode} onChange={(event) => setSelectedMode(event.target.value as 'all' | CalendarEventMode)}>
+              <option value="all">{t('calendar.allModes')}</option>
+              <option value="online">{t('mode.online')}</option>
+              <option value="offline">{t('mode.offline')}</option>
+              <option value="hybrid">{t('mode.hybrid')}</option>
+            </select>
+          </label>
+        </div>
+      </details>
 
       <div className="calendar-view-bar" aria-label={t('calendar.viewLabel')}>
         <div className="view-tabs" role="tablist" aria-label={t('calendar.viewLabel')}>
@@ -327,7 +336,7 @@ export function PublicEventsPage() {
                         <span className="event-status-badge" data-status={event.status}>{t(`status.${event.status}`)}</span>
                       </span>
                       <span className="event-title">{event.title}</span>
-                      <span className="event-meta">
+                      <span className="event-meta event-card-meta-line">
                         {event.group_name} -{' '}
                         <span className="event-category-label">
                           <span className="event-category-swatch" aria-hidden="true" />
@@ -337,7 +346,7 @@ export function PublicEventsPage() {
                         {t(`mode.${event.mode}`)}
                       </span>
                       <span className="event-attendance">{attendanceLabel}</span>
-                      {event.description && <span className="event-description">{event.description}</span>}
+                      {event.description && <span className="event-description clamped-mobile-description">{event.description}</span>}
                       {event.location_text && <span className="event-meta">{t('public.location', { location: event.location_text })}</span>}
                       {(event.online_details.platform || onlineUrl) && (
                         <span className="event-meta">

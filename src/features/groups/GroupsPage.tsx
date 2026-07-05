@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
 import { useAuth } from '../auth/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
@@ -38,6 +39,7 @@ function getLocationMapHref(location: GroupLocation) {
 export function GroupsPage() {
   const { user } = useAuth();
   const { locale, t } = useLanguage();
+  const isNarrowViewport = useIsNarrowViewport();
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [invites, setInvites] = useState<GroupInvite[]>([]);
@@ -432,29 +434,34 @@ export function GroupsPage() {
       )}
 
       <div className="two-column-layout">
-        <form className="form-card" onSubmit={handleCreateGroup}>
-          <h3>{t('groups.createTitle')}</h3>
-          <label>
-            {t('groups.name')}
-            <input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required />
-          </label>
-          <label>
-            {t('groups.descriptionLabel')}
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
-          </label>
-          <label>
-            {t('groups.theme')}
-            <input
-              value={theme}
-              onChange={(event) => setTheme(event.target.value)}
-              placeholder={t('groups.themePlaceholder')}
-              maxLength={80}
-            />
-          </label>
-          <button type="submit" disabled={isCreatingGroup}>
-            {isCreatingGroup ? t('groups.creating') : t('groups.createButton')}
-          </button>
-        </form>
+        <details className="collapsible-section group-disclosure create-group-disclosure" open={!isNarrowViewport}>
+          <summary>
+            <span>{t('groups.createTitle')}</span>
+          </summary>
+          <form className="form-card" onSubmit={handleCreateGroup}>
+            <h3>{t('groups.createTitle')}</h3>
+            <label>
+              {t('groups.name')}
+              <input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required />
+            </label>
+            <label>
+              {t('groups.descriptionLabel')}
+              <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
+            </label>
+            <label>
+              {t('groups.theme')}
+              <input
+                value={theme}
+                onChange={(event) => setTheme(event.target.value)}
+                placeholder={t('groups.themePlaceholder')}
+                maxLength={80}
+              />
+            </label>
+            <button type="submit" disabled={isCreatingGroup}>
+              {isCreatingGroup ? t('groups.creating') : t('groups.createButton')}
+            </button>
+          </form>
+        </details>
 
         <div className="stack">
           <div>
@@ -504,7 +511,10 @@ export function GroupsPage() {
       </div>
 
       {selectedGroup && (
-        <div className="invite-panel">
+        <details className="invite-panel collapsible-section group-disclosure" open={!isNarrowViewport}>
+          <summary>
+            <span>{t('groups.guildMembers', { count: members.length })}</span>
+          </summary>
           <div className="section-heading compact">
             <div>
               <p className="eyebrow">{t('groups.members')}</p>
@@ -537,11 +547,14 @@ export function GroupsPage() {
           ) : (
             <p className="hint">{t('groups.noMembers')}</p>
           )}
-        </div>
+        </details>
       )}
 
       {selectedGroup && (
-        <div className="invite-panel">
+        <details className="invite-panel collapsible-section group-disclosure" open={!isNarrowViewport || joinRequests.length > 0}>
+          <summary>
+            <span>{t('groups.pendingJoinRequests', { count: joinRequests.length })}</span>
+          </summary>
           <div className="section-heading compact">
             <div>
               <p className="eyebrow">{t('groups.joinRequests')}</p>
@@ -587,11 +600,14 @@ export function GroupsPage() {
               <p className="hint">{t('groups.noJoinRequests')}</p>
             )
           )}
-        </div>
+        </details>
       )}
 
       {selectedGroup && (
-        <div className="invite-panel">
+        <details className="invite-panel collapsible-section group-disclosure" open={!isNarrowViewport}>
+          <summary>
+            <span>{t('groups.savedSpots')}</span>
+          </summary>
           <div className="section-heading compact">
             <div>
               <p className="eyebrow">{t('groups.locations')}</p>
@@ -660,11 +676,14 @@ export function GroupsPage() {
           ) : (
             <p className="hint">{t('groups.noLocations')}</p>
           )}
-        </div>
+        </details>
       )}
 
       {selectedGroup && (
-        <div className="invite-panel">
+        <details className="invite-panel collapsible-section group-disclosure" open={!isNarrowViewport}>
+          <summary>
+            <span>{t('groups.inviteLinks')}</span>
+          </summary>
           <div className="section-heading compact">
             <div>
               <p className="eyebrow">{t('groups.invites')}</p>
@@ -725,7 +744,7 @@ export function GroupsPage() {
               {canManageInvites ? t('groups.noInvitesAdmin') : t('groups.noInvitesMember')}
             </p>
           )}
-        </div>
+        </details>
       )}
     </section>
   );
