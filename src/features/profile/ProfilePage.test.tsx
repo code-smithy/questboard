@@ -182,4 +182,16 @@ describe('ProfilePage', () => {
     expect(screen.queryByLabelText('Private .ics URL')).not.toBeInTheDocument();
     expect(await screen.findByText('Calendar subscription revoked.')).toBeInTheDocument();
   });
+
+  it('shows the Supabase error detail when calendar feed creation fails', async () => {
+    vi.mocked(ensureOwnCalendarFeed).mockRejectedValue(new Error('Could not find the function public.ensure_own_calendar_feed'));
+
+    renderProfilePage();
+
+    expect(await screen.findByLabelText('Calendar subscription')).toHaveValue('rsvp');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create subscription link' }));
+
+    expect(await screen.findByText(/Could not find the function public\.ensure_own_calendar_feed/i)).toBeInTheDocument();
+  });
 });

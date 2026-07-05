@@ -17,6 +17,16 @@ import {
 } from './profileApi';
 import type { CalendarFeed, CalendarFeedScope } from './profileApi';
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' && message ? message : null;
+  }
+
+  return null;
+}
+
 export function ProfilePage() {
   const { profile, refreshProfile, user } = useAuth();
   const { language, locale, setLanguage, t } = useLanguage();
@@ -30,6 +40,7 @@ export function ProfilePage() {
   const [calendarFeed, setCalendarFeed] = useState<CalendarFeed | null>(null);
   const [calendarFeedScope, setCalendarFeedScope] = useState<CalendarFeedScope>('rsvp');
   const [calendarFeedStatus, setCalendarFeedStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'copied' | 'revoked' | 'error'>('loading');
+  const [calendarFeedErrorMessage, setCalendarFeedErrorMessage] = useState<string | null>(null);
   const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
   const timezoneOptions = useMemo(() => getTimezoneOptions([profile?.timezone, timezone]), [profile?.timezone, timezone]);
   const calendarFeedUrl = calendarFeed?.is_active ? getCalendarFeedUrl(calendarFeed.token) : '';
@@ -66,10 +77,12 @@ export function ProfilePage() {
         setCalendarFeed(null);
         setCalendarFeedScope('rsvp');
         setCalendarFeedStatus('idle');
+        setCalendarFeedErrorMessage(null);
         return;
       }
 
       setCalendarFeedStatus('loading');
+      setCalendarFeedErrorMessage(null);
 
       try {
         const nextFeed = await getOwnCalendarFeed(profile.id);
@@ -79,7 +92,10 @@ export function ProfilePage() {
         setCalendarFeedStatus('idle');
       } catch (error) {
         console.error('Questboard could not load the calendar feed', error);
-        if (isMounted) setCalendarFeedStatus('error');
+        if (isMounted) {
+          setCalendarFeedErrorMessage(getErrorMessage(error));
+          setCalendarFeedStatus('error');
+        }
       }
     }
 
@@ -143,12 +159,14 @@ export function ProfilePage() {
     if (!profile) return;
 
     setCalendarFeedStatus('saving');
+    setCalendarFeedErrorMessage(null);
 
     try {
       setCalendarFeed(await ensureOwnCalendarFeed(calendarFeedScope));
       setCalendarFeedStatus('saved');
     } catch (error) {
       console.error('Questboard could not save the calendar feed', error);
+      setCalendarFeedErrorMessage(getErrorMessage(error));
       setCalendarFeedStatus('error');
     }
   }
@@ -161,6 +179,7 @@ export function ProfilePage() {
       setCalendarFeedStatus('copied');
     } catch (error) {
       console.error('Questboard could not copy the calendar feed URL', error);
+      setCalendarFeedErrorMessage(getErrorMessage(error));
       setCalendarFeedStatus('error');
     }
   }
@@ -169,12 +188,14 @@ export function ProfilePage() {
     if (!profile) return;
 
     setCalendarFeedStatus('saving');
+    setCalendarFeedErrorMessage(null);
 
     try {
       setCalendarFeed(await regenerateOwnCalendarFeed());
       setCalendarFeedStatus('saved');
     } catch (error) {
       console.error('Questboard could not regenerate the calendar feed', error);
+      setCalendarFeedErrorMessage(getErrorMessage(error));
       setCalendarFeedStatus('error');
     }
   }
@@ -183,6 +204,7 @@ export function ProfilePage() {
     if (!profile || !calendarFeed?.is_active) return;
 
     setCalendarFeedStatus('saving');
+    setCalendarFeedErrorMessage(null);
 
     try {
       await disableOwnCalendarFeed();
@@ -190,6 +212,7 @@ export function ProfilePage() {
       setCalendarFeedStatus('revoked');
     } catch (error) {
       console.error('Questboard could not revoke the calendar feed', error);
+      setCalendarFeedErrorMessage(getErrorMessage(error));
       setCalendarFeedStatus('error');
     }
   }
@@ -290,6 +313,7 @@ export function ProfilePage() {
             disabled={!profile || calendarFeedStatus === 'saving' || calendarFeedStatus === 'loading'}
             onChange={(event) => {
               setCalendarFeedScope(event.target.value as CalendarFeedScope);
+              setCalendarFeedErrorMessage(null);
               setCalendarFeedStatus('idle');
             }}
           >
@@ -329,7 +353,13 @@ export function ProfilePage() {
         {calendarFeedStatus === 'saved' && <p className="status-message">{t('profile.calendarFeedSaved')}</p>}
         {calendarFeedStatus === 'copied' && <p className="status-message">{t('profile.calendarFeedCopied')}</p>}
         {calendarFeedStatus === 'revoked' && <p className="status-message">{t('profile.calendarFeedRevoked')}</p>}
-        {calendarFeedStatus === 'error' && <p className="error-text">{t('profile.calendarFeedError')}</p>}
+        {calendarFeedStatus === 'error' && (
+          <p className="error-text">
+            {calendarFeedErrorMessage
+              ? t('profile.calendarFeedErrorDetail', { detail: calendarFeedErrorMessage })
+              : t('profile.calendarFeedError')}
+          </p>
+        )}
       </form>
 
       <form className="profile-display-name-form" onSubmit={(event) => void handleDisplayNameSubmit(event)}>
