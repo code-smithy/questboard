@@ -14,6 +14,19 @@ function toLocalInputValue(value: string) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+function toLocalInputValueFromDate(date: Date) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function setLocalInputTime(value: string, time: string) {
+  return `${value.split('T')[0]}T${time}`;
+}
+
+function addHoursToLocalInputValue(value: string, hours: number) {
+  return toLocalInputValueFromDate(new Date(new Date(value).getTime() + hours * 60 * 60 * 1000));
+}
+
 vi.mock('./eventApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./eventApi')>()),
   listGroupCategories,
@@ -134,6 +147,41 @@ describe('EventForm', () => {
     const startPicker = screen.getByRole('button', { name: /^Beginn / });
 
     expect(startPicker.textContent).toBe(new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(startLocalValue)));
+  });
+
+  it('sets the end time from the configured default duration when the start changes', () => {
+    render(
+      <EventForm
+        groups={[{
+          id: 'group-1',
+          name: 'Friday Guild',
+          description: null,
+          theme: null,
+          created_at: '2026-07-01T12:00:00.000Z',
+          role: 'regular',
+          joined_at: '2026-07-01T12:00:00.000Z',
+        }]}
+        initialValues={{
+          startAt: '2026-07-06T18:00:00.000Z',
+          endAt: '2026-07-06T21:00:00.000Z',
+          timezone: 'UTC',
+        }}
+        defaultDurationHours={2.5}
+        isSubmitting={false}
+        submitLabel="Post quest"
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    const nextStartAt = setLocalInputTime(toLocalInputValue('2026-07-06T18:00:00.000Z'), '10:00');
+    const expectedEndAt = addHoursToLocalInputValue(nextStartAt, 2.5);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Starts / }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Time' }), { target: { value: '10:00' } });
+
+    expect(screen.getByRole('button', { name: /^Ends / }).textContent).toBe(
+      new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(expectedEndAt)),
+    );
   });
 
   it('uses the date-time picker for recurrence end', async () => {

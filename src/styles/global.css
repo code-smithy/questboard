@@ -334,7 +334,8 @@ nav a:hover {
 
   .two-column-layout,
   .inline-form,
-  .profile-display-name-form {
+  .profile-display-name-form,
+  .profile-default-duration-form {
     grid-template-columns: 1fr;
   }
 }
@@ -420,6 +421,7 @@ nav a:hover {
 
 .language-select .hint,
 .notification-toggle .hint,
+.profile-default-duration-form .hint,
 .profile-display-name-form .hint {
   color: #bfae95;
   font-size: 0.85rem;
@@ -433,12 +435,17 @@ nav a:hover {
   margin-top: 1.25rem;
 }
 
-.profile-display-name-form {
+.profile-display-name-form,
+.profile-default-duration-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(12rem, 1fr)) auto;
   gap: 0.85rem;
   align-items: end;
   margin-top: 1.25rem;
+}
+
+.profile-default-duration-form {
+  grid-template-columns: minmax(12rem, 20rem) auto;
 }
 
 .profile-form-field {
@@ -447,7 +454,9 @@ nav a:hover {
 }
 
 .profile-display-name-form .status-message,
-.profile-display-name-form .error-text {
+.profile-display-name-form .error-text,
+.profile-default-duration-form .status-message,
+.profile-default-duration-form .error-text {
   grid-column: 1 / -1;
   margin: 0;
 }

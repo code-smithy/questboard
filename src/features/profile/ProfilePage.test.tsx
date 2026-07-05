@@ -4,9 +4,10 @@ import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { ReminderContext } from '../reminders/ReminderContext';
 import { ProfilePage } from './ProfilePage';
-import { updateOwnProfileDisplayName } from './profileApi';
+import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName } from './profileApi';
 
 vi.mock('./profileApi', () => ({
+  updateOwnProfileDefaultEventDuration: vi.fn(),
   updateOwnProfileDisplayName: vi.fn(),
 }));
 
@@ -24,6 +25,7 @@ const baseAuthState: AuthState = {
     created_at: '2026-01-01T00:00:00Z',
     last_seen_at: null,
     is_site_admin: false,
+    default_event_duration_hours: 4,
   },
   refreshProfile: vi.fn(),
   signOut: vi.fn(),
@@ -71,5 +73,26 @@ describe('ProfilePage', () => {
     await waitFor(() => expect(updateOwnProfileDisplayName).toHaveBeenCalledWith('user-1', 'Guild Name'));
     expect(refreshProfile).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Display name saved.')).toBeInTheDocument();
+  });
+
+  it('saves the default quest duration setting', async () => {
+    const refreshProfile = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(updateOwnProfileDefaultEventDuration).mockResolvedValue({
+      ...baseAuthState.profile!,
+      default_event_duration_hours: 2.5,
+    });
+
+    renderProfilePage({ refreshProfile });
+
+    const durationInput = screen.getByLabelText('Default quest duration (hours)');
+
+    expect(durationInput).toHaveValue(4);
+
+    fireEvent.change(durationInput, { target: { value: '2.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save default duration' }));
+
+    await waitFor(() => expect(updateOwnProfileDefaultEventDuration).toHaveBeenCalledWith('user-1', 2.5));
+    expect(refreshProfile).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Default duration saved.')).toBeInTheDocument();
   });
 });

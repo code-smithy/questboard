@@ -4,20 +4,33 @@ import { useAuth } from '../auth/AuthContext';
 import { languageOptions, useLanguage } from '../i18n/LanguageContext';
 import type { Language } from '../i18n/LanguageContext';
 import { useReminders } from '../reminders/ReminderContext';
-import { updateOwnProfileDisplayName } from './profileApi';
+import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName } from './profileApi';
 
 export function ProfilePage() {
   const { profile, refreshProfile, user } = useAuth();
   const { language, locale, setLanguage, t } = useLanguage();
   const { browserNotificationsEnabled, notificationPermission, setBrowserNotificationsEnabled } = useReminders();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
+  const [defaultEventDurationHours, setDefaultEventDurationHours] = useState(String(profile?.default_event_duration_hours ?? 4));
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [durationSaveStatus, setDurationSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
   const canSaveDisplayName = Boolean(profile) && trimmedDisplayName.length > 0 && trimmedDisplayName !== profile?.display_name && saveStatus !== 'saving';
+  const parsedDefaultEventDurationHours = Number(defaultEventDurationHours);
+  const canSaveDefaultEventDuration = Boolean(profile)
+    && Number.isFinite(parsedDefaultEventDurationHours)
+    && parsedDefaultEventDurationHours > 0
+    && parsedDefaultEventDurationHours <= 168
+    && parsedDefaultEventDurationHours !== profile?.default_event_duration_hours
+    && durationSaveStatus !== 'saving';
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? '');
   }, [profile?.display_name]);
+
+  useEffect(() => {
+    setDefaultEventDurationHours(String(profile?.default_event_duration_hours ?? 4));
+  }, [profile?.default_event_duration_hours]);
 
   async function handleDisplayNameSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,6 +45,22 @@ export function ProfilePage() {
     } catch (error) {
       console.error('Questboard could not update the profile display name', error);
       setSaveStatus('error');
+    }
+  }
+
+  async function handleDefaultEventDurationSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile || !canSaveDefaultEventDuration) return;
+
+    setDurationSaveStatus('saving');
+
+    try {
+      await updateOwnProfileDefaultEventDuration(profile.id, parsedDefaultEventDurationHours);
+      await refreshProfile();
+      setDurationSaveStatus('saved');
+    } catch (error) {
+      console.error('Questboard could not update the default event duration', error);
+      setDurationSaveStatus('error');
     }
   }
 
@@ -71,6 +100,31 @@ export function ProfilePage() {
               : t('profile.browserNotificationsHint')}
         </span>
       </label>
+
+      <form className="profile-default-duration-form" onSubmit={(event) => void handleDefaultEventDurationSubmit(event)}>
+        <div className="profile-form-field">
+          <label htmlFor="profile-default-event-duration">{t('profile.defaultEventDuration')}</label>
+          <input
+            id="profile-default-event-duration"
+            type="number"
+            min="0.25"
+            max="168"
+            step="0.25"
+            value={defaultEventDurationHours}
+            disabled={!profile || durationSaveStatus === 'saving'}
+            onChange={(event) => {
+              setDefaultEventDurationHours(event.target.value);
+              setDurationSaveStatus('idle');
+            }}
+          />
+          <span className="hint">{t('profile.defaultEventDurationHint')}</span>
+        </div>
+        <button type="submit" disabled={!canSaveDefaultEventDuration}>
+          {durationSaveStatus === 'saving' ? t('profile.savingDefaultEventDuration') : t('profile.saveDefaultEventDuration')}
+        </button>
+        {durationSaveStatus === 'saved' && <p className="status-message">{t('profile.defaultEventDurationSaved')}</p>}
+        {durationSaveStatus === 'error' && <p className="error-text">{t('profile.defaultEventDurationSaveError')}</p>}
+      </form>
 
       <form className="profile-display-name-form" onSubmit={(event) => void handleDisplayNameSubmit(event)}>
         <div className="profile-form-field">

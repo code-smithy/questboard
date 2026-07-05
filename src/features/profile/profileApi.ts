@@ -17,3 +17,18 @@ export async function updateOwnProfileDisplayName(profileId: string, displayName
 
   return data as Profile;
 }
+
+export async function updateOwnProfileDefaultEventDuration(profileId: string, durationHours: number) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ default_event_duration_hours: durationHours })
+    .eq('id', profileId)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Profile;
+}

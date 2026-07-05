@@ -13,7 +13,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export function NewEventPage() {
-  const { user } = useAuth();
+  const { profile, user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [groups, setGroups] = useState<GroupSummary[]>([]);
@@ -67,7 +67,13 @@ export function NewEventPage() {
       {isLoading ? (
         <p className="hint">{t('event.loadGuilds')}</p>
       ) : groups.length ? (
-        <EventForm groups={groups} isSubmitting={isSubmitting} submitLabel={t('event.postQuest')} onSubmit={handleSubmit} />
+        <EventForm
+          groups={groups}
+          defaultDurationHours={profile?.default_event_duration_hours}
+          isSubmitting={isSubmitting}
+          submitLabel={t('event.postQuest')}
+          onSubmit={handleSubmit}
+        />
       ) : (
         <p className="hint">{t('event.noGuilds')}</p>
       )}

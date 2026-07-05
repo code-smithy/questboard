@@ -64,6 +64,7 @@ describe('AppShell', () => {
         created_at: new Date().toISOString(),
         last_seen_at: null,
         is_site_admin: false,
+        default_event_duration_hours: 4,
       },
       signOut,
     });
@@ -85,6 +86,7 @@ describe('AppShell', () => {
         created_at: new Date().toISOString(),
         last_seen_at: null,
         is_site_admin: false,
+        default_event_duration_hours: 4,
       },
     }, [
       {

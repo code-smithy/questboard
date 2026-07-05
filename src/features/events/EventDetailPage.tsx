@@ -142,7 +142,7 @@ function getIcsFilename(event: QuestEvent) {
 
 export function EventDetailPage() {
   const { eventId } = useParams();
-  const { user } = useAuth();
+  const { profile, user } = useAuth();
   const { locale, t } = useLanguage();
   const navigate = useNavigate();
   const [event, setEvent] = useState<QuestEvent | null>(null);
@@ -586,7 +586,14 @@ export function EventDetailPage() {
       ) : (
         <>
           <h2>{t('event.editTitle')}</h2>
-          <EventForm groups={groups} initialValues={toFormValues(event)} isSubmitting={isSubmitting} submitLabel={t('event.saveQuest')} onSubmit={handleUpdate} />
+          <EventForm
+            groups={groups}
+            initialValues={toFormValues(event)}
+            defaultDurationHours={profile?.default_event_duration_hours}
+            isSubmitting={isSubmitting}
+            submitLabel={t('event.saveQuest')}
+            onSubmit={handleUpdate}
+          />
         </>
       )}
     </section>

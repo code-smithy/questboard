@@ -23,11 +23,10 @@ type EventFormProps = {
   initialValues?: Partial<EventFormValues>;
   isSubmitting: boolean;
   submitLabel: string;
+  defaultDurationHours?: number;
   onSubmit: (values: EventFormValues) => Promise<void>;
 };
 
-const defaultStart = new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16);
-const defaultEnd = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 16);
 const timeOptions = Array.from({ length: 96 }, (_, index) => {
   const hours = Math.floor(index / 4);
   const minutes = (index % 4) * 15;
@@ -38,11 +37,25 @@ function toIsoFromLocal(value: string) {
   return new Date(value).toISOString();
 }
 
+function toLocalInputValueFromDate(date: Date) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
 function toLocalInputValue(value?: string) {
   if (!value) return '';
   const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  return toLocalInputValueFromDate(date);
+}
+
+function normalizeDefaultDurationHours(value: number | undefined) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 4;
+}
+
+function addHoursToLocalInputValue(value: string, hours: number) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return toLocalInputValueFromDate(new Date(date.getTime() + hours * 60 * 60 * 1000));
 }
 
 function parseLocalDateTimeParts(value: string) {
@@ -223,9 +236,12 @@ function DateTimePicker({ label, locale, value, onChange, required = false, fall
   );
 }
 
-export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel }: EventFormProps) {
+export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel, defaultDurationHours }: EventFormProps) {
   const { locale, t } = useLanguage();
+  const normalizedDefaultDurationHours = normalizeDefaultDurationHours(defaultDurationHours);
+  const defaultStart = toLocalInputValueFromDate(new Date(Date.now() + 60 * 60 * 1000));
   const initialStartAt = toLocalInputValue(initialValues?.startAt) || defaultStart;
+  const initialEndAt = toLocalInputValue(initialValues?.endAt) || addHoursToLocalInputValue(initialStartAt, normalizedDefaultDurationHours);
   const initialRecurrence = parseRecurrenceRule(initialValues?.recurrenceRule);
   const initialOrdinalWeekday = getOrdinalWeekday(initialStartAt);
   const [groupId, setGroupId] = useState(initialValues?.groupId ?? groups[0]?.id ?? '');
@@ -236,7 +252,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [startAt, setStartAt] = useState(initialStartAt);
-  const [endAt, setEndAt] = useState(toLocalInputValue(initialValues?.endAt) || defaultEnd);
+  const [endAt, setEndAt] = useState(initialEndAt);
   const [timezone, setTimezone] = useState(initialValues?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC');
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>(initialRecurrence.frequency);
   const [recurrenceInterval, setRecurrenceInterval] = useState(String(initialRecurrence.interval));
@@ -316,6 +332,11 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
         ? Array.from(new Set([...currentWeekdays, weekday]))
         : currentWeekdays.filter((currentWeekday) => currentWeekday !== weekday)
     ));
+  };
+
+  const handleStartAtChange = (nextStartAt: string) => {
+    setStartAt(nextStartAt);
+    setEndAt(addHoursToLocalInputValue(nextStartAt, normalizedDefaultDurationHours));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -443,7 +464,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
       </label>
       <div className="inline-form two-up">
-        <DateTimePicker label={t('form.starts')} locale={locale} value={startAt} onChange={setStartAt} required fallbackTime="18:00" />
+        <DateTimePicker label={t('form.starts')} locale={locale} value={startAt} onChange={handleStartAtChange} required fallbackTime="18:00" />
         <DateTimePicker label={t('form.ends')} locale={locale} value={endAt} onChange={setEndAt} required fallbackTime="21:00" />
       </div>
       <label>

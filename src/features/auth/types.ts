@@ -7,4 +7,5 @@ export type Profile = {
   created_at: string;
   last_seen_at: string | null;
   is_site_admin: boolean;
+  default_event_duration_hours: number;
 };

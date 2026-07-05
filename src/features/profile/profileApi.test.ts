@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { updateOwnProfileDisplayName } from './profileApi';
+import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName } from './profileApi';
 
 const { builders, from } = vi.hoisted(() => {
   const builders = {
@@ -40,6 +40,22 @@ describe('profileApi', () => {
 
     expect(from).toHaveBeenCalledWith('profiles');
     expect(builders.profiles.update).toHaveBeenCalledWith({ display_name: 'Guild Name' });
+    expect(builders.profiles.eq).toHaveBeenCalledWith('id', 'user-1');
+  });
+
+  it('saves the default event duration hours', async () => {
+    builders.profiles.single.mockResolvedValue({
+      data: { id: 'user-1', default_event_duration_hours: 3.5 },
+      error: null,
+    });
+
+    await expect(updateOwnProfileDefaultEventDuration('user-1', 3.5)).resolves.toEqual({
+      id: 'user-1',
+      default_event_duration_hours: 3.5,
+    });
+
+    expect(from).toHaveBeenCalledWith('profiles');
+    expect(builders.profiles.update).toHaveBeenCalledWith({ default_event_duration_hours: 3.5 });
     expect(builders.profiles.eq).toHaveBeenCalledWith('id', 'user-1');
   });
 });
