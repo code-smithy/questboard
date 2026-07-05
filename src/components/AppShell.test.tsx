@@ -65,6 +65,7 @@ describe('AppShell', () => {
         last_seen_at: null,
         is_site_admin: false,
         default_event_duration_hours: 4,
+        timezone: 'UTC',
       },
       signOut,
     });
@@ -87,6 +88,7 @@ describe('AppShell', () => {
         last_seen_at: null,
         is_site_admin: false,
         default_event_duration_hours: 4,
+        timezone: 'UTC',
       },
     }, [
       {

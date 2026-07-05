@@ -70,6 +70,7 @@ export function NewEventPage() {
         <EventForm
           groups={groups}
           defaultDurationHours={profile?.default_event_duration_hours}
+          defaultTimezone={profile?.timezone}
           isSubmitting={isSubmitting}
           submitLabel={t('event.postQuest')}
           onSubmit={handleSubmit}

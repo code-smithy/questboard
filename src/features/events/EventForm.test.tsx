@@ -184,6 +184,68 @@ describe('EventForm', () => {
     );
   });
 
+  it('uses the configured default timezone for new quests', async () => {
+    const handleSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <EventForm
+        groups={[{
+          id: 'group-1',
+          name: 'Friday Guild',
+          description: null,
+          theme: null,
+          created_at: '2026-07-01T12:00:00.000Z',
+          role: 'regular',
+          joined_at: '2026-07-01T12:00:00.000Z',
+        }]}
+        defaultTimezone="Europe/Zurich"
+        isSubmitting={false}
+        submitLabel="Post quest"
+        onSubmit={handleSubmit}
+      />,
+    );
+
+    expect(screen.getByLabelText('Timezone')).toHaveValue('Europe/Zurich');
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Dungeon night' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Post quest' }));
+
+    await waitFor(() => {
+      expect(handleSubmit).toHaveBeenCalledWith(expect.objectContaining({
+        timezone: 'Europe/Zurich',
+      }));
+    });
+  });
+
+  it('lets the timezone be selected from known options', () => {
+    render(
+      <EventForm
+        groups={[{
+          id: 'group-1',
+          name: 'Friday Guild',
+          description: null,
+          theme: null,
+          created_at: '2026-07-01T12:00:00.000Z',
+          role: 'regular',
+          joined_at: '2026-07-01T12:00:00.000Z',
+        }]}
+        initialValues={{
+          startAt: '2026-07-06T18:00:00.000Z',
+          endAt: '2026-07-06T21:00:00.000Z',
+          timezone: 'UTC',
+        }}
+        isSubmitting={false}
+        submitLabel="Post quest"
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    const timezoneSelect = screen.getByLabelText('Timezone');
+
+    expect(timezoneSelect.tagName).toBe('SELECT');
+    expect(screen.getByRole('option', { name: /^Europe\/Zurich/ })).toBeInTheDocument();
+  });
+
   it('uses the date-time picker for recurrence end', async () => {
     render(
       <EventForm

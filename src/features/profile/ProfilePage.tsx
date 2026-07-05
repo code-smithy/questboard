@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { getBrowserTimezone, getTimezoneOptions, normalizeTimezone } from '../../lib/timezones';
 import { useAuth } from '../auth/AuthContext';
 import { languageOptions, useLanguage } from '../i18n/LanguageContext';
 import type { Language } from '../i18n/LanguageContext';
 import { useReminders } from '../reminders/ReminderContext';
-import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName } from './profileApi';
+import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName, updateOwnProfileTimezone } from './profileApi';
 
 export function ProfilePage() {
   const { profile, refreshProfile, user } = useAuth();
@@ -12,9 +13,12 @@ export function ProfilePage() {
   const { browserNotificationsEnabled, notificationPermission, setBrowserNotificationsEnabled } = useReminders();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [defaultEventDurationHours, setDefaultEventDurationHours] = useState(String(profile?.default_event_duration_hours ?? 4));
+  const [timezone, setTimezone] = useState(() => normalizeTimezone(profile?.timezone ?? getBrowserTimezone()));
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [durationSaveStatus, setDurationSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [timezoneSaveStatus, setTimezoneSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
+  const timezoneOptions = useMemo(() => getTimezoneOptions([profile?.timezone, timezone]), [profile?.timezone, timezone]);
   const canSaveDisplayName = Boolean(profile) && trimmedDisplayName.length > 0 && trimmedDisplayName !== profile?.display_name && saveStatus !== 'saving';
   const parsedDefaultEventDurationHours = Number(defaultEventDurationHours);
   const canSaveDefaultEventDuration = Boolean(profile)
@@ -23,6 +27,10 @@ export function ProfilePage() {
     && parsedDefaultEventDurationHours <= 168
     && parsedDefaultEventDurationHours !== profile?.default_event_duration_hours
     && durationSaveStatus !== 'saving';
+  const normalizedTimezone = normalizeTimezone(timezone);
+  const canSaveTimezone = Boolean(profile)
+    && normalizedTimezone !== profile?.timezone
+    && timezoneSaveStatus !== 'saving';
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? '');
@@ -31,6 +39,10 @@ export function ProfilePage() {
   useEffect(() => {
     setDefaultEventDurationHours(String(profile?.default_event_duration_hours ?? 4));
   }, [profile?.default_event_duration_hours]);
+
+  useEffect(() => {
+    setTimezone(normalizeTimezone(profile?.timezone ?? getBrowserTimezone()));
+  }, [profile?.timezone]);
 
   async function handleDisplayNameSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,6 +73,22 @@ export function ProfilePage() {
     } catch (error) {
       console.error('Questboard could not update the default event duration', error);
       setDurationSaveStatus('error');
+    }
+  }
+
+  async function handleTimezoneSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile || !canSaveTimezone) return;
+
+    setTimezoneSaveStatus('saving');
+
+    try {
+      await updateOwnProfileTimezone(profile.id, normalizedTimezone);
+      await refreshProfile();
+      setTimezoneSaveStatus('saved');
+    } catch (error) {
+      console.error('Questboard could not update the profile timezone', error);
+      setTimezoneSaveStatus('error');
     }
   }
 
@@ -124,6 +152,31 @@ export function ProfilePage() {
         </button>
         {durationSaveStatus === 'saved' && <p className="status-message">{t('profile.defaultEventDurationSaved')}</p>}
         {durationSaveStatus === 'error' && <p className="error-text">{t('profile.defaultEventDurationSaveError')}</p>}
+      </form>
+
+      <form className="profile-timezone-form" onSubmit={(event) => void handleTimezoneSubmit(event)}>
+        <div className="profile-form-field">
+          <label htmlFor="profile-timezone">{t('profile.timezone')}</label>
+          <select
+            id="profile-timezone"
+            value={timezone}
+            disabled={!profile || timezoneSaveStatus === 'saving'}
+            onChange={(event) => {
+              setTimezone(event.target.value);
+              setTimezoneSaveStatus('idle');
+            }}
+          >
+            {timezoneOptions.map((timezoneOption) => (
+              <option key={timezoneOption.value} value={timezoneOption.value}>{timezoneOption.label}</option>
+            ))}
+          </select>
+          <span className="hint">{t('profile.timezoneHint')}</span>
+        </div>
+        <button type="submit" disabled={!canSaveTimezone}>
+          {timezoneSaveStatus === 'saving' ? t('profile.savingTimezone') : t('profile.saveTimezone')}
+        </button>
+        {timezoneSaveStatus === 'saved' && <p className="status-message">{t('profile.timezoneSaved')}</p>}
+        {timezoneSaveStatus === 'error' && <p className="error-text">{t('profile.timezoneSaveError')}</p>}
       </form>
 
       <form className="profile-display-name-form" onSubmit={(event) => void handleDisplayNameSubmit(event)}>

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useId, useMemo, useState } from 'react';
 import { useIsNarrowViewport } from '../../hooks/useIsNarrowViewport';
 import { usePersistedDisclosureState } from '../../hooks/usePersistedDisclosureState';
+import { getBrowserTimezone, getTimezoneOptions, normalizeTimezone } from '../../lib/timezones';
 import { listGroupLocations } from '../groups/groupApi';
 import type { GroupLocation, GroupSummary } from '../groups/groupApi';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -26,6 +27,7 @@ type EventFormProps = {
   isSubmitting: boolean;
   submitLabel: string;
   defaultDurationHours?: number;
+  defaultTimezone?: string | null;
   onSubmit: (values: EventFormValues) => Promise<void>;
 };
 
@@ -238,7 +240,7 @@ function DateTimePicker({ label, locale, value, onChange, required = false, fall
   );
 }
 
-export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel, defaultDurationHours }: EventFormProps) {
+export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submitLabel, defaultDurationHours, defaultTimezone }: EventFormProps) {
   const { locale, t } = useLanguage();
   const isNarrowViewport = useIsNarrowViewport();
   const normalizedDefaultDurationHours = normalizeDefaultDurationHours(defaultDurationHours);
@@ -247,6 +249,10 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
   const initialEndAt = toLocalInputValue(initialValues?.endAt) || addHoursToLocalInputValue(initialStartAt, normalizedDefaultDurationHours);
   const initialRecurrence = parseRecurrenceRule(initialValues?.recurrenceRule);
   const initialOrdinalWeekday = getOrdinalWeekday(initialStartAt);
+  const timezoneOptions = useMemo(
+    () => getTimezoneOptions([initialValues?.timezone, defaultTimezone]),
+    [defaultTimezone, initialValues?.timezone],
+  );
   const [groupId, setGroupId] = useState(initialValues?.groupId ?? groups[0]?.id ?? '');
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [locations, setLocations] = useState<GroupLocation[]>([]);
@@ -256,7 +262,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [startAt, setStartAt] = useState(initialStartAt);
   const [endAt, setEndAt] = useState(initialEndAt);
-  const [timezone, setTimezone] = useState(initialValues?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC');
+  const [timezone, setTimezone] = useState(() => normalizeTimezone(initialValues?.timezone ?? defaultTimezone ?? getBrowserTimezone()));
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>(initialRecurrence.frequency);
   const [recurrenceInterval, setRecurrenceInterval] = useState(String(initialRecurrence.interval));
   const [recurrenceWeekdaySelections, setRecurrenceWeekdaySelections] = useState<RecurrenceWeekday[]>(
@@ -433,7 +439,7 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
       description,
       startAt: toIsoFromLocal(startAt),
       endAt: toIsoFromLocal(endAt),
-      timezone,
+      timezone: normalizeTimezone(timezone),
       mode,
       locationText,
       onlinePlatform,
@@ -634,7 +640,11 @@ export function EventForm({ groups, initialValues, isSubmitting, onSubmit, submi
         <div className="inline-form three-up">
           <label>
             {t('form.timezone')}
-            <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
+            <select value={timezone} onChange={(event) => setTimezone(event.target.value)} required>
+              {timezoneOptions.map((timezoneOption) => (
+                <option key={timezoneOption.value} value={timezoneOption.value}>{timezoneOption.label}</option>
+              ))}
+            </select>
           </label>
           <label>
             {t('form.visibility')}

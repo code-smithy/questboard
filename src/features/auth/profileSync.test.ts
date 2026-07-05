@@ -61,6 +61,7 @@ describe('profile sync helpers', () => {
       last_seen_at: '2026-01-02T00:00:00Z',
       is_site_admin: false,
       default_event_duration_hours: 4,
+      timezone: null,
     };
     const maybeSingle = vi.fn().mockResolvedValue({ data: savedProfile, error: null });
     const select = vi.fn().mockReturnValue({ maybeSingle });
@@ -95,6 +96,7 @@ describe('profile sync helpers', () => {
       last_seen_at: '2026-01-02T00:00:00Z',
       is_site_admin: false,
       default_event_duration_hours: 4,
+      timezone: null,
     };
     const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
     const updateSelect = vi.fn().mockReturnValue({ maybeSingle });

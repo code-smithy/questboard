@@ -4,11 +4,12 @@ import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { ReminderContext } from '../reminders/ReminderContext';
 import { ProfilePage } from './ProfilePage';
-import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName } from './profileApi';
+import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName, updateOwnProfileTimezone } from './profileApi';
 
 vi.mock('./profileApi', () => ({
   updateOwnProfileDefaultEventDuration: vi.fn(),
   updateOwnProfileDisplayName: vi.fn(),
+  updateOwnProfileTimezone: vi.fn(),
 }));
 
 const baseAuthState: AuthState = {
@@ -26,6 +27,7 @@ const baseAuthState: AuthState = {
     last_seen_at: null,
     is_site_admin: false,
     default_event_duration_hours: 4,
+    timezone: 'Europe/London',
   },
   refreshProfile: vi.fn(),
   signOut: vi.fn(),
@@ -94,5 +96,26 @@ describe('ProfilePage', () => {
     await waitFor(() => expect(updateOwnProfileDefaultEventDuration).toHaveBeenCalledWith('user-1', 2.5));
     expect(refreshProfile).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Default duration saved.')).toBeInTheDocument();
+  });
+
+  it('saves the personal timezone setting', async () => {
+    const refreshProfile = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(updateOwnProfileTimezone).mockResolvedValue({
+      ...baseAuthState.profile!,
+      timezone: 'Europe/Zurich',
+    });
+
+    renderProfilePage({ refreshProfile });
+
+    const timezoneSelect = screen.getByLabelText('Personal timezone');
+
+    expect(timezoneSelect).toHaveValue('Europe/London');
+
+    fireEvent.change(timezoneSelect, { target: { value: 'Europe/Zurich' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save timezone' }));
+
+    await waitFor(() => expect(updateOwnProfileTimezone).toHaveBeenCalledWith('user-1', 'Europe/Zurich'));
+    expect(refreshProfile).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Timezone saved.')).toBeInTheDocument();
   });
 });

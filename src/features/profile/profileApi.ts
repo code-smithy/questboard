@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { normalizeTimezone } from '../../lib/timezones';
 import type { Profile } from '../auth/types';
 
 export async function updateOwnProfileDisplayName(profileId: string, displayName: string) {
@@ -22,6 +23,21 @@ export async function updateOwnProfileDefaultEventDuration(profileId: string, du
   const { data, error } = await supabase
     .from('profiles')
     .update({ default_event_duration_hours: durationHours })
+    .eq('id', profileId)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Profile;
+}
+
+export async function updateOwnProfileTimezone(profileId: string, timezone: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ timezone: normalizeTimezone(timezone) })
     .eq('id', profileId)
     .select()
     .single();

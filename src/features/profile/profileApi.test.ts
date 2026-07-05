@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName } from './profileApi';
+import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName, updateOwnProfileTimezone } from './profileApi';
 
 const { builders, from } = vi.hoisted(() => {
   const builders = {
@@ -56,6 +56,22 @@ describe('profileApi', () => {
 
     expect(from).toHaveBeenCalledWith('profiles');
     expect(builders.profiles.update).toHaveBeenCalledWith({ default_event_duration_hours: 3.5 });
+    expect(builders.profiles.eq).toHaveBeenCalledWith('id', 'user-1');
+  });
+
+  it('saves the profile timezone', async () => {
+    builders.profiles.single.mockResolvedValue({
+      data: { id: 'user-1', timezone: 'Europe/Zurich' },
+      error: null,
+    });
+
+    await expect(updateOwnProfileTimezone('user-1', 'Europe/Zurich')).resolves.toEqual({
+      id: 'user-1',
+      timezone: 'Europe/Zurich',
+    });
+
+    expect(from).toHaveBeenCalledWith('profiles');
+    expect(builders.profiles.update).toHaveBeenCalledWith({ timezone: 'Europe/Zurich' });
     expect(builders.profiles.eq).toHaveBeenCalledWith('id', 'user-1');
   });
 });
