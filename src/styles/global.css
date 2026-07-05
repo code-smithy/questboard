@@ -276,6 +276,15 @@ nav a:hover {
   gap: 1rem;
 }
 
+.guild-edit-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.create-group-disclosure {
+  margin-top: 1.25rem;
+}
+
 .inline-form {
   display: grid;
   grid-template-columns: minmax(12rem, 1fr) minmax(8rem, 0.6fr) auto;

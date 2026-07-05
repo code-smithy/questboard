@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, leaveGroup, listGroupLocations, listGroupMembers, listPendingEventJoinRequests, removeGroupMember, reviewEventJoinRequest, setGroupMemberRole } from './groupApi';
+import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, leaveGroup, listGroupLocations, listGroupMembers, listPendingEventJoinRequests, removeGroupMember, reviewEventJoinRequest, setGroupMemberRole, updateGroup } from './groupApi';
 
 const { builders, from, rpc } = vi.hoisted(() => {
   const builders = {
@@ -23,11 +23,17 @@ const { builders, from, rpc } = vi.hoisted(() => {
       is: vi.fn(() => builders.group_members),
       order: vi.fn(),
     },
+    groups: {
+      update: vi.fn(() => builders.groups),
+      eq: vi.fn(() => builders.groups),
+      select: vi.fn(() => builders.groups),
+      single: vi.fn(),
+    },
   };
 
   return {
     builders,
-    from: vi.fn((table: 'locations' | 'event_join_requests' | 'group_members') => builders[table]),
+    from: vi.fn((table: 'locations' | 'event_join_requests' | 'group_members' | 'groups') => builders[table]),
     rpc: vi.fn(),
   };
 });
@@ -44,10 +50,12 @@ describe('groupApi', () => {
     Object.values(builders.locations).forEach((fn) => fn.mockClear?.());
     Object.values(builders.event_join_requests).forEach((fn) => fn.mockClear?.());
     Object.values(builders.group_members).forEach((fn) => fn.mockClear?.());
+    Object.values(builders.groups).forEach((fn) => fn.mockClear?.());
     builders.locations.eq.mockImplementation(() => builders.locations);
     builders.event_join_requests.eq.mockImplementation(() => builders.event_join_requests);
     builders.group_members.eq.mockImplementation(() => builders.group_members);
     builders.group_members.is.mockImplementation(() => builders.group_members);
+    builders.groups.eq.mockImplementation(() => builders.groups);
   });
 
   it('creates groups through the RLS-safe database function', async () => {
@@ -89,6 +97,42 @@ describe('groupApi', () => {
     await expect(archiveGroup('group-1')).resolves.toBeUndefined();
 
     expect(rpc).toHaveBeenCalledWith('archive_group', { target_group_id: 'group-1' });
+  });
+
+  it('updates editable guild fields through the groups table policy', async () => {
+    builders.groups.single.mockResolvedValue({
+      data: {
+        id: 'group-1',
+        name: 'Oneshot Company',
+        description: 'Weekly one-shots',
+        theme: 'DnD',
+        created_at: '2026-07-03T12:00:00.000Z',
+      },
+      error: null,
+    });
+
+    await expect(
+      updateGroup('group-1', {
+        name: ' Oneshot Company ',
+        description: ' Weekly one-shots ',
+        theme: ' DnD ',
+      }),
+    ).resolves.toEqual({
+      id: 'group-1',
+      name: 'Oneshot Company',
+      description: 'Weekly one-shots',
+      theme: 'DnD',
+      created_at: '2026-07-03T12:00:00.000Z',
+    });
+
+    expect(from).toHaveBeenCalledWith('groups');
+    expect(builders.groups.update).toHaveBeenCalledWith({
+      name: 'Oneshot Company',
+      description: 'Weekly one-shots',
+      theme: 'DnD',
+    });
+    expect(builders.groups.eq).toHaveBeenCalledWith('id', 'group-1');
+    expect(builders.groups.select).toHaveBeenCalledWith('id, name, description, theme, created_at');
   });
 
   it('lists active guild members with profile details', async () => {

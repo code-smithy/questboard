@@ -19,6 +19,7 @@ import {
   removeGroupMember,
   reviewEventJoinRequest,
   setGroupMemberRole,
+  updateGroup,
 } from './groupApi';
 import type { EventJoinRequest, GroupInvite, GroupLocation, GroupMember, GroupSummary } from './groupApi';
 
@@ -54,6 +55,8 @@ export function GroupsPage() {
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [isCreatingLocation, setIsCreatingLocation] = useState(false);
   const [isArchivingGroup, setIsArchivingGroup] = useState(false);
@@ -64,6 +67,9 @@ export function GroupsPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [theme, setTheme] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editTheme, setEditTheme] = useState('');
   const [maxUses, setMaxUses] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [locationName, setLocationName] = useState('');
@@ -80,6 +86,7 @@ export function GroupsPage() {
     [groups, selectedGroupId],
   );
   const canManageInvites = selectedGroup?.role === 'group_admin';
+  const canEditGroup = selectedGroup?.role === 'group_admin';
   const canArchiveGroup = selectedGroup?.role === 'group_admin';
   const canManageMembers = selectedGroup?.role === 'group_admin';
   const createGroupDisclosure = usePersistedDisclosureState('groups.create-group', !isNarrowViewport);
@@ -121,6 +128,21 @@ export function GroupsPage() {
   useEffect(() => {
     void loadGroups();
   }, [loadGroups]);
+
+  useEffect(() => {
+    if (!selectedGroup) {
+      setEditName('');
+      setEditDescription('');
+      setEditTheme('');
+      setIsEditingGroup(false);
+      return;
+    }
+
+    setEditName(selectedGroup.name);
+    setEditDescription(selectedGroup.description ?? '');
+    setEditTheme(selectedGroup.theme ?? '');
+    setIsEditingGroup(false);
+  }, [selectedGroup]);
 
   useEffect(() => {
     const loadInvites = async () => {
@@ -265,6 +287,50 @@ export function GroupsPage() {
       setErrorMessage(getErrorMessage(error, t('groups.inviteCreateError')));
     } finally {
       setIsCreatingInvite(false);
+    }
+  };
+
+  const handleUpdateGroup = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!selectedGroup || selectedGroup.role !== 'group_admin' || isUpdatingGroup) return;
+    if (!editName.trim()) {
+      setErrorMessage(t('groups.needNameForSave'));
+      return;
+    }
+
+    setIsUpdatingGroup(true);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const updatedGroup = await updateGroup(selectedGroup.id, {
+        name: editName,
+        description: editDescription,
+        theme: editTheme,
+      });
+      setGroups((currentGroups) =>
+        currentGroups.map((group) =>
+          group.id === updatedGroup.id
+            ? {
+                ...group,
+                name: updatedGroup.name,
+                description: updatedGroup.description,
+                theme: updatedGroup.theme,
+                created_at: updatedGroup.created_at,
+              }
+            : group,
+        ),
+      );
+      setEditName(updatedGroup.name);
+      setEditDescription(updatedGroup.description ?? '');
+      setEditTheme(updatedGroup.theme ?? '');
+      setIsEditingGroup(false);
+      setStatusMessage(t('groups.guildUpdated'));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('groups.guildUpdateError')));
+    } finally {
+      setIsUpdatingGroup(false);
     }
   };
 
@@ -470,80 +536,86 @@ export function GroupsPage() {
       )}
 
       <div className="two-column-layout">
-        <details className="collapsible-section group-disclosure create-group-disclosure" {...createGroupDisclosure}>
-          <summary>
-            <span>{t('groups.createTitle')}</span>
-          </summary>
-          <form className="form-card" onSubmit={handleCreateGroup}>
-            <h3>{t('groups.createTitle')}</h3>
-            <label>
-              {t('groups.name')}
-              <input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required />
-            </label>
-            <label>
-              {t('groups.descriptionLabel')}
-              <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
-            </label>
-            <label>
-              {t('groups.theme')}
-              <input
-                value={theme}
-                onChange={(event) => setTheme(event.target.value)}
-                placeholder={t('groups.themePlaceholder')}
-                maxLength={80}
-              />
-            </label>
-            <button type="submit" disabled={isCreatingGroup}>
-              {isCreatingGroup ? t('groups.creating') : t('groups.createButton')}
-            </button>
-          </form>
-        </details>
-
-        <div className="stack">
-          <div>
-            <h3>{t('groups.memberships')}</h3>
-            {isLoadingGroups ? (
-              <p className="hint">{t('groups.loading')}</p>
-            ) : groups.length ? (
-              <div className="item-list" role="list">
-                {groups.map((group) => (
-                  <button
-                    type="button"
-                    className={`list-button${selectedGroup?.id === group.id ? ' is-selected' : ''}`}
-                    key={group.id}
-                    onClick={() => setSelectedGroupId(group.id)}
-                  >
-                    <span>{group.name}</span>
-                    <small>{group.role === 'group_admin' ? t('groups.admin') : t('groups.member')}</small>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="hint">{t('groups.empty')}</p>
-            )}
-          </div>
-
-          {selectedGroup && (
-            <div className="detail-panel">
-              <p className="eyebrow">{selectedGroup.role === 'group_admin' ? t('groups.guildAdmin') : t('groups.guildMember')}</p>
-              <h3>{selectedGroup.name}</h3>
-              <p>{selectedGroup.description || t('groups.noDescription')}</p>
-              {selectedGroup.theme && <p className="hint">{t('groups.themePrefix', { theme: selectedGroup.theme })}</p>}
-              {selectedGroup.role !== 'group_admin' && (
-                <div className="button-row compact-actions">
-                  <button type="button" className="secondary-button" disabled={isLeavingGroup} onClick={() => void handleLeaveGroup()}>
-                    {isLeavingGroup ? t('groups.leavingGuild') : t('groups.leaveGuild')}
-                  </button>
-                </div>
-              )}
-              {canArchiveGroup && (
-                <button type="button" className="secondary-button" disabled={isArchivingGroup} onClick={() => void handleArchiveGroup()}>
-                  {isArchivingGroup ? t('groups.archivingGuild') : t('groups.archiveGuild')}
+        <div>
+          <h3>{t('groups.memberships')}</h3>
+          {isLoadingGroups ? (
+            <p className="hint">{t('groups.loading')}</p>
+          ) : groups.length ? (
+            <div className="item-list" role="list">
+              {groups.map((group) => (
+                <button
+                  type="button"
+                  className={`list-button${selectedGroup?.id === group.id ? ' is-selected' : ''}`}
+                  key={group.id}
+                  onClick={() => setSelectedGroupId(group.id)}
+                >
+                  <span>{group.name}</span>
+                  <small>{group.role === 'group_admin' ? t('groups.admin') : t('groups.member')}</small>
                 </button>
-              )}
+              ))}
             </div>
+          ) : (
+            <p className="hint">{t('groups.empty')}</p>
           )}
         </div>
+
+        {selectedGroup && (
+          <div className="detail-panel">
+            <p className="eyebrow">{selectedGroup.role === 'group_admin' ? t('groups.guildAdmin') : t('groups.guildMember')}</p>
+            {isEditingGroup ? (
+              <form className="guild-edit-form" onSubmit={handleUpdateGroup}>
+                <label>
+                  {t('groups.editName')}
+                  <input value={editName} onChange={(event) => setEditName(event.target.value)} maxLength={80} required />
+                </label>
+                <label>
+                  {t('groups.editDescription')}
+                  <textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} rows={4} />
+                </label>
+                <label>
+                  {t('groups.editTheme')}
+                  <input
+                    value={editTheme}
+                    onChange={(event) => setEditTheme(event.target.value)}
+                    placeholder={t('groups.themePlaceholder')}
+                    maxLength={80}
+                  />
+                </label>
+                <div className="button-row compact-actions">
+                  <button type="submit" disabled={isUpdatingGroup}>
+                    {isUpdatingGroup ? t('groups.savingGuild') : t('groups.saveGuild')}
+                  </button>
+                  <button type="button" className="secondary-button" disabled={isUpdatingGroup} onClick={() => setIsEditingGroup(false)}>
+                    {t('groups.cancelEdit')}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <h3>{selectedGroup.name}</h3>
+                <p>{selectedGroup.description || t('groups.noDescription')}</p>
+                {selectedGroup.theme && <p className="hint">{t('groups.themePrefix', { theme: selectedGroup.theme })}</p>}
+                <div className="button-row compact-actions">
+                  {canEditGroup && (
+                    <button type="button" onClick={() => setIsEditingGroup(true)}>
+                      {t('groups.editGuild')}
+                    </button>
+                  )}
+                  {selectedGroup.role !== 'group_admin' && (
+                    <button type="button" className="secondary-button" disabled={isLeavingGroup} onClick={() => void handleLeaveGroup()}>
+                      {isLeavingGroup ? t('groups.leavingGuild') : t('groups.leaveGuild')}
+                    </button>
+                  )}
+                  {canArchiveGroup && (
+                    <button type="button" className="secondary-button" disabled={isArchivingGroup} onClick={() => void handleArchiveGroup()}>
+                      {isArchivingGroup ? t('groups.archivingGuild') : t('groups.archiveGuild')}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedGroup && (
@@ -798,6 +870,35 @@ export function GroupsPage() {
           )}
         </details>
       )}
+
+      <details className="collapsible-section group-disclosure create-group-disclosure" {...createGroupDisclosure}>
+        <summary>
+          <span>{t('groups.createTitle')}</span>
+        </summary>
+        <form className="form-card" onSubmit={handleCreateGroup}>
+          <h3>{t('groups.createTitle')}</h3>
+          <label>
+            {t('groups.name')}
+            <input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required />
+          </label>
+          <label>
+            {t('groups.descriptionLabel')}
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
+          </label>
+          <label>
+            {t('groups.theme')}
+            <input
+              value={theme}
+              onChange={(event) => setTheme(event.target.value)}
+              placeholder={t('groups.themePlaceholder')}
+              maxLength={80}
+            />
+          </label>
+          <button type="submit" disabled={isCreatingGroup}>
+            {isCreatingGroup ? t('groups.creating') : t('groups.createButton')}
+          </button>
+        </form>
+      </details>
     </section>
   );
 }

@@ -91,6 +91,12 @@ type CreateGroupInput = {
   createdBy: string;
 };
 
+type UpdateGroupInput = {
+  name: string;
+  description?: string;
+  theme?: string;
+};
+
 type CreateInviteInput = {
   groupId: string;
   createdBy: string;
@@ -168,6 +174,23 @@ export async function createGroup({ name, description, theme, createdBy }: Creat
   if (error) throw error;
 
   return { id: data as string };
+}
+
+export async function updateGroup(groupId: string, { name, description, theme }: UpdateGroupInput) {
+  const { data, error } = await supabase
+    .from('groups')
+    .update({
+      name: name.trim(),
+      description: normalizeOptionalText(description),
+      theme: normalizeOptionalText(theme),
+    })
+    .eq('id', groupId)
+    .select('id, name, description, theme, created_at')
+    .single();
+
+  if (error) throw error;
+
+  return data as Pick<GroupSummary, 'id' | 'name' | 'description' | 'theme' | 'created_at'>;
 }
 
 export async function archiveGroup(groupId: string) {

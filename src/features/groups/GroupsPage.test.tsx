@@ -22,6 +22,7 @@ const {
   removeGroupMember,
   reviewEventJoinRequest,
   setGroupMemberRole,
+  updateGroup,
 } = vi.hoisted(() => ({
   archiveGroup: vi.fn(),
   archiveGroupLocation: vi.fn(),
@@ -38,6 +39,7 @@ const {
   removeGroupMember: vi.fn(),
   reviewEventJoinRequest: vi.fn(),
   setGroupMemberRole: vi.fn(),
+  updateGroup: vi.fn(),
 }));
 
 vi.mock('./groupApi', () => ({
@@ -56,6 +58,7 @@ vi.mock('./groupApi', () => ({
   removeGroupMember,
   reviewEventJoinRequest,
   setGroupMemberRole,
+  updateGroup,
 }));
 
 const baseAuthState: AuthState = {
@@ -175,6 +178,7 @@ describe('GroupsPage', () => {
     removeGroupMember.mockReset();
     reviewEventJoinRequest.mockReset();
     setGroupMemberRole.mockReset();
+    updateGroup.mockReset();
 
     archiveGroup.mockResolvedValue(undefined);
     listUserGroups.mockResolvedValue([adminGroup]);
@@ -191,6 +195,13 @@ describe('GroupsPage', () => {
     removeGroupMember.mockResolvedValue(undefined);
     reviewEventJoinRequest.mockResolvedValue('event-1');
     setGroupMemberRole.mockResolvedValue(undefined);
+    updateGroup.mockResolvedValue({
+      id: 'group-1',
+      name: 'Friday Night Guild',
+      description: 'Campaigns and painting nights.',
+      theme: 'Mini Painting',
+      created_at: '2026-07-03T12:00:00.000Z',
+    });
   });
 
   afterEach(() => {
@@ -307,7 +318,9 @@ describe('GroupsPage', () => {
 
     fireEvent.change(screen.getByLabelText(/guild name/i), { target: { value: 'Mini Painting Crew' } });
     fireEvent.change(screen.getByLabelText(/theme/i), { target: { value: 'Mini Painting' } });
-    fireEvent.click(screen.getByRole('button', { name: /create guild/i }));
+    const createForm = screen.getByLabelText(/guild name/i).closest('form');
+    if (!createForm) throw new Error('Expected create guild form.');
+    fireEvent.click(within(createForm).getByRole('button', { name: /create guild/i }));
 
     await waitFor(() => {
       expect(createGroup).toHaveBeenCalledWith({
@@ -318,6 +331,27 @@ describe('GroupsPage', () => {
       });
     });
     expect(await screen.findByText(/guild created/i)).toBeInTheDocument();
+  });
+
+  it('lets guild stewards edit guild details', async () => {
+    renderGroups();
+
+    await screen.findByText('Board games and one-shots.');
+    fireEvent.click(screen.getByRole('button', { name: /edit guild/i }));
+    fireEvent.change(screen.getByLabelText(/edit description/i), { target: { value: 'Campaigns and painting nights.' } });
+    fireEvent.change(screen.getByLabelText(/edit theme/i), { target: { value: 'Mini Painting' } });
+    fireEvent.click(screen.getByRole('button', { name: /save guild/i }));
+
+    await waitFor(() => {
+      expect(updateGroup).toHaveBeenCalledWith('group-1', {
+        name: 'Friday Night Guild',
+        description: 'Campaigns and painting nights.',
+        theme: 'Mini Painting',
+      });
+    });
+    expect(await screen.findByText('Guild saved.')).toBeInTheDocument();
+    expect(await screen.findByText('Campaigns and painting nights.')).toBeInTheDocument();
+    expect(await screen.findByText('Theme: Mini Painting')).toBeInTheDocument();
   });
 
   it('creates and disables reusable invite links', async () => {
