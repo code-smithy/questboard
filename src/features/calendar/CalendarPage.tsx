@@ -125,6 +125,7 @@ function updateEventRsvp(events: CalendarEvent[], eventId: string, userId: strin
 
 export function CalendarPage() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const { locale, t } = useLanguage();
   const { dismissReminder, dueReminders } = useReminders();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -137,12 +138,13 @@ export function CalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [savingRsvpEventId, setSavingRsvpEventId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasCalendarData = groups.length > 0 || events.length > 0;
 
   useEffect(() => {
     let isMounted = true;
 
     const loadCalendar = async () => {
-      if (!user) {
+      if (!userId) {
         setGroups([]);
         setEvents([]);
         setIsLoading(false);
@@ -153,7 +155,7 @@ export function CalendarPage() {
       setErrorMessage(null);
 
       try {
-        const readModel = await getCalendarReadModel(user.id);
+        const readModel = await getCalendarReadModel(userId);
         if (!isMounted) return;
         setGroups(readModel.groups.map((group) => ({ id: group.id, name: group.name })));
         setEvents(readModel.events);
@@ -169,7 +171,7 @@ export function CalendarPage() {
     return () => {
       isMounted = false;
     };
-  }, [t, user]);
+  }, [t, userId]);
 
   const handleDismissReminder = async (reminderId: string) => {
     setErrorMessage(null);
@@ -338,7 +340,7 @@ export function CalendarPage() {
       </div>
 
       {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
-      {isLoading ? (
+      {isLoading && !hasCalendarData ? (
         <p className="hint">{t('calendar.loading')}</p>
       ) : !groups.length ? (
         <p className="hint">{t('calendar.noGroups')}</p>

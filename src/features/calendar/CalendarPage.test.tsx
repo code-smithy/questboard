@@ -120,6 +120,34 @@ function renderCalendar(authState: Partial<AuthState> = {}, reminders: DueRemind
   );
 }
 
+function renderCalendarWithAuthRefreshControl() {
+  function AuthRefreshHarness() {
+    const [authVersion, setAuthVersion] = useState(0);
+
+    return (
+      <AuthContext.Provider
+        value={{
+          ...baseAuthState,
+          user: { id: 'user-1', email: `user-${authVersion}@example.com` } as AuthState['user'],
+        }}
+      >
+        <TestReminderProvider>
+          <button type="button" onClick={() => setAuthVersion((currentVersion) => currentVersion + 1)}>
+            Refresh auth
+          </button>
+          <MemoryRouter initialEntries={['/calendar']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Routes>
+              <Route path="/calendar" element={<CalendarPage />} />
+            </Routes>
+          </MemoryRouter>
+        </TestReminderProvider>
+      </AuthContext.Provider>
+    );
+  }
+
+  return render(<AuthRefreshHarness />);
+}
+
 describe('CalendarPage', () => {
   beforeEach(() => {
     dismissInAppReminder.mockReset();
@@ -194,6 +222,19 @@ describe('CalendarPage', () => {
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Mini Painting' } });
     fireEvent.change(screen.getByLabelText(/mode/i), { target: { value: 'online' } });
     expect(screen.getByText('Mini painting hangout')).toBeInTheDocument();
+  });
+
+  it('keeps the agenda in place when auth refreshes the same user', async () => {
+    renderCalendarWithAuthRefreshControl();
+
+    expect(await screen.findByText('Board game night')).toBeInTheDocument();
+    expect(getCalendarReadModel).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh auth' }));
+
+    expect(screen.getByText('Board game night')).toBeInTheDocument();
+    expect(screen.queryByText('Loading your quest board...')).not.toBeInTheDocument();
+    expect(getCalendarReadModel).toHaveBeenCalledTimes(1);
   });
 
   it('links agenda cards to event details', async () => {
