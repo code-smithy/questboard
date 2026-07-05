@@ -1,12 +1,24 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { ReminderContext } from '../reminders/ReminderContext';
 import { ProfilePage } from './ProfilePage';
-import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName, updateOwnProfileTimezone } from './profileApi';
+import {
+  disableOwnCalendarFeed,
+  ensureOwnCalendarFeed,
+  getOwnCalendarFeed,
+  updateOwnProfileDefaultEventDuration,
+  updateOwnProfileDisplayName,
+  updateOwnProfileTimezone,
+} from './profileApi';
 
 vi.mock('./profileApi', () => ({
+  disableOwnCalendarFeed: vi.fn(),
+  ensureOwnCalendarFeed: vi.fn(),
+  getCalendarFeedUrl: (token: string) => `http://localhost:54321/functions/v1/calendar-feed?token=${token}`,
+  getOwnCalendarFeed: vi.fn(),
+  regenerateOwnCalendarFeed: vi.fn(),
   updateOwnProfileDefaultEventDuration: vi.fn(),
   updateOwnProfileDisplayName: vi.fn(),
   updateOwnProfileTimezone: vi.fn(),
@@ -53,6 +65,11 @@ function renderProfilePage(authState: Partial<AuthState> = {}) {
 }
 
 describe('ProfilePage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getOwnCalendarFeed).mockResolvedValue(null);
+  });
+
   it('edits the shown display name while keeping the synced Discord name read-only', async () => {
     const refreshProfile = vi.fn().mockResolvedValue(undefined);
     vi.mocked(updateOwnProfileDisplayName).mockResolvedValue({
@@ -117,5 +134,52 @@ describe('ProfilePage', () => {
     await waitFor(() => expect(updateOwnProfileTimezone).toHaveBeenCalledWith('user-1', 'Europe/Zurich'));
     expect(refreshProfile).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Timezone saved.')).toBeInTheDocument();
+  });
+
+  it('creates a private calendar subscription feed from profile settings', async () => {
+    vi.mocked(ensureOwnCalendarFeed).mockResolvedValue({
+      id: 'feed-1',
+      owner_id: 'user-1',
+      token: 'feed-token',
+      scope: 'rsvp',
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      last_accessed_at: null,
+    });
+
+    renderProfilePage();
+
+    expect(await screen.findByLabelText('Calendar subscription')).toHaveValue('rsvp');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create subscription link' }));
+
+    await waitFor(() => expect(ensureOwnCalendarFeed).toHaveBeenCalledWith('rsvp'));
+    expect(await screen.findByLabelText('Private .ics URL')).toHaveValue('http://localhost:54321/functions/v1/calendar-feed?token=feed-token');
+    expect(await screen.findByText('Calendar subscription saved.')).toBeInTheDocument();
+  });
+
+  it('revokes an existing calendar subscription feed', async () => {
+    vi.mocked(getOwnCalendarFeed).mockResolvedValue({
+      id: 'feed-1',
+      owner_id: 'user-1',
+      token: 'feed-token',
+      scope: 'visible',
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      last_accessed_at: null,
+    });
+    vi.mocked(disableOwnCalendarFeed).mockResolvedValue(undefined);
+
+    renderProfilePage();
+
+    expect(await screen.findByLabelText('Private .ics URL')).toHaveValue('http://localhost:54321/functions/v1/calendar-feed?token=feed-token');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke subscription' }));
+
+    await waitFor(() => expect(disableOwnCalendarFeed).toHaveBeenCalled());
+    expect(screen.queryByLabelText('Private .ics URL')).not.toBeInTheDocument();
+    expect(await screen.findByText('Calendar subscription revoked.')).toBeInTheDocument();
   });
 });

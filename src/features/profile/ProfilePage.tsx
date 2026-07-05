@@ -5,7 +5,17 @@ import { useAuth } from '../auth/AuthContext';
 import { languageOptions, useLanguage } from '../i18n/LanguageContext';
 import type { Language } from '../i18n/LanguageContext';
 import { useReminders } from '../reminders/ReminderContext';
-import { updateOwnProfileDefaultEventDuration, updateOwnProfileDisplayName, updateOwnProfileTimezone } from './profileApi';
+import {
+  disableOwnCalendarFeed,
+  ensureOwnCalendarFeed,
+  getCalendarFeedUrl,
+  getOwnCalendarFeed,
+  regenerateOwnCalendarFeed,
+  updateOwnProfileDefaultEventDuration,
+  updateOwnProfileDisplayName,
+  updateOwnProfileTimezone,
+} from './profileApi';
+import type { CalendarFeed, CalendarFeedScope } from './profileApi';
 
 export function ProfilePage() {
   const { profile, refreshProfile, user } = useAuth();
@@ -17,8 +27,12 @@ export function ProfilePage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [durationSaveStatus, setDurationSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [timezoneSaveStatus, setTimezoneSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [calendarFeed, setCalendarFeed] = useState<CalendarFeed | null>(null);
+  const [calendarFeedScope, setCalendarFeedScope] = useState<CalendarFeedScope>('rsvp');
+  const [calendarFeedStatus, setCalendarFeedStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'copied' | 'revoked' | 'error'>('loading');
   const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
   const timezoneOptions = useMemo(() => getTimezoneOptions([profile?.timezone, timezone]), [profile?.timezone, timezone]);
+  const calendarFeedUrl = calendarFeed?.is_active ? getCalendarFeedUrl(calendarFeed.token) : '';
   const canSaveDisplayName = Boolean(profile) && trimmedDisplayName.length > 0 && trimmedDisplayName !== profile?.display_name && saveStatus !== 'saving';
   const parsedDefaultEventDurationHours = Number(defaultEventDurationHours);
   const canSaveDefaultEventDuration = Boolean(profile)
@@ -43,6 +57,38 @@ export function ProfilePage() {
   useEffect(() => {
     setTimezone(normalizeTimezone(profile?.timezone ?? getBrowserTimezone()));
   }, [profile?.timezone]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCalendarFeed() {
+      if (!profile) {
+        setCalendarFeed(null);
+        setCalendarFeedScope('rsvp');
+        setCalendarFeedStatus('idle');
+        return;
+      }
+
+      setCalendarFeedStatus('loading');
+
+      try {
+        const nextFeed = await getOwnCalendarFeed(profile.id);
+        if (!isMounted) return;
+        setCalendarFeed(nextFeed);
+        setCalendarFeedScope(nextFeed?.scope ?? 'rsvp');
+        setCalendarFeedStatus('idle');
+      } catch (error) {
+        console.error('Questboard could not load the calendar feed', error);
+        if (isMounted) setCalendarFeedStatus('error');
+      }
+    }
+
+    void loadCalendarFeed();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [profile]);
 
   async function handleDisplayNameSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,6 +135,62 @@ export function ProfilePage() {
     } catch (error) {
       console.error('Questboard could not update the profile timezone', error);
       setTimezoneSaveStatus('error');
+    }
+  }
+
+  async function handleCalendarFeedSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile) return;
+
+    setCalendarFeedStatus('saving');
+
+    try {
+      setCalendarFeed(await ensureOwnCalendarFeed(calendarFeedScope));
+      setCalendarFeedStatus('saved');
+    } catch (error) {
+      console.error('Questboard could not save the calendar feed', error);
+      setCalendarFeedStatus('error');
+    }
+  }
+
+  async function handleCopyCalendarFeed() {
+    if (!calendarFeedUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(calendarFeedUrl);
+      setCalendarFeedStatus('copied');
+    } catch (error) {
+      console.error('Questboard could not copy the calendar feed URL', error);
+      setCalendarFeedStatus('error');
+    }
+  }
+
+  async function handleRegenerateCalendarFeed() {
+    if (!profile) return;
+
+    setCalendarFeedStatus('saving');
+
+    try {
+      setCalendarFeed(await regenerateOwnCalendarFeed());
+      setCalendarFeedStatus('saved');
+    } catch (error) {
+      console.error('Questboard could not regenerate the calendar feed', error);
+      setCalendarFeedStatus('error');
+    }
+  }
+
+  async function handleDisableCalendarFeed() {
+    if (!profile || !calendarFeed?.is_active) return;
+
+    setCalendarFeedStatus('saving');
+
+    try {
+      await disableOwnCalendarFeed();
+      setCalendarFeed({ ...calendarFeed, is_active: false, token: '' });
+      setCalendarFeedStatus('revoked');
+    } catch (error) {
+      console.error('Questboard could not revoke the calendar feed', error);
+      setCalendarFeedStatus('error');
     }
   }
 
@@ -177,6 +279,57 @@ export function ProfilePage() {
         </button>
         {timezoneSaveStatus === 'saved' && <p className="status-message">{t('profile.timezoneSaved')}</p>}
         {timezoneSaveStatus === 'error' && <p className="error-text">{t('profile.timezoneSaveError')}</p>}
+      </form>
+
+      <form className="profile-calendar-feed-form" onSubmit={(event) => void handleCalendarFeedSubmit(event)}>
+        <div className="profile-form-field">
+          <label htmlFor="profile-calendar-feed-scope">{t('profile.calendarFeedScope')}</label>
+          <select
+            id="profile-calendar-feed-scope"
+            value={calendarFeedScope}
+            disabled={!profile || calendarFeedStatus === 'saving' || calendarFeedStatus === 'loading'}
+            onChange={(event) => {
+              setCalendarFeedScope(event.target.value as CalendarFeedScope);
+              setCalendarFeedStatus('idle');
+            }}
+          >
+            <option value="rsvp">{t('profile.calendarFeedScopeRsvp')}</option>
+            <option value="visible">{t('profile.calendarFeedScopeVisible')}</option>
+          </select>
+          <span className="hint">{t('profile.calendarFeedHint')}</span>
+        </div>
+        <button type="submit" disabled={!profile || calendarFeedStatus === 'saving' || calendarFeedStatus === 'loading'}>
+          {calendarFeedStatus === 'saving'
+            ? t('profile.savingCalendarFeed')
+            : calendarFeed?.is_active
+              ? t('profile.saveCalendarFeed')
+              : t('profile.createCalendarFeed')}
+        </button>
+        {calendarFeedStatus === 'loading' && <p className="hint">{t('profile.loadingCalendarFeed')}</p>}
+        {calendarFeedUrl && (
+          <div className="profile-form-field profile-calendar-feed-url">
+            <label htmlFor="profile-calendar-feed-url">{t('profile.calendarFeedUrl')}</label>
+            <input id="profile-calendar-feed-url" value={calendarFeedUrl} readOnly />
+            <span className="hint">{t('profile.calendarFeedUrlHint')}</span>
+          </div>
+        )}
+        {calendarFeedUrl && (
+          <div className="button-row compact-actions profile-calendar-feed-actions">
+            <button type="button" className="secondary-button" onClick={() => void handleCopyCalendarFeed()}>
+              {t('profile.copyCalendarFeed')}
+            </button>
+            <button type="button" className="secondary-button" disabled={calendarFeedStatus === 'saving'} onClick={() => void handleRegenerateCalendarFeed()}>
+              {t('profile.regenerateCalendarFeed')}
+            </button>
+            <button type="button" className="secondary-button" disabled={calendarFeedStatus === 'saving'} onClick={() => void handleDisableCalendarFeed()}>
+              {t('profile.revokeCalendarFeed')}
+            </button>
+          </div>
+        )}
+        {calendarFeedStatus === 'saved' && <p className="status-message">{t('profile.calendarFeedSaved')}</p>}
+        {calendarFeedStatus === 'copied' && <p className="status-message">{t('profile.calendarFeedCopied')}</p>}
+        {calendarFeedStatus === 'revoked' && <p className="status-message">{t('profile.calendarFeedRevoked')}</p>}
+        {calendarFeedStatus === 'error' && <p className="error-text">{t('profile.calendarFeedError')}</p>}
       </form>
 
       <form className="profile-display-name-form" onSubmit={(event) => void handleDisplayNameSubmit(event)}>
