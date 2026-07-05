@@ -21,6 +21,7 @@ const {
   leaveGroup,
   removeGroupMember,
   reviewEventJoinRequest,
+  setGroupMemberRole,
 } = vi.hoisted(() => ({
   archiveGroup: vi.fn(),
   archiveGroupLocation: vi.fn(),
@@ -36,6 +37,7 @@ const {
   leaveGroup: vi.fn(),
   removeGroupMember: vi.fn(),
   reviewEventJoinRequest: vi.fn(),
+  setGroupMemberRole: vi.fn(),
 }));
 
 vi.mock('./groupApi', () => ({
@@ -53,6 +55,7 @@ vi.mock('./groupApi', () => ({
   leaveGroup,
   removeGroupMember,
   reviewEventJoinRequest,
+  setGroupMemberRole,
 }));
 
 const baseAuthState: AuthState = {
@@ -171,6 +174,7 @@ describe('GroupsPage', () => {
     leaveGroup.mockReset();
     removeGroupMember.mockReset();
     reviewEventJoinRequest.mockReset();
+    setGroupMemberRole.mockReset();
 
     archiveGroup.mockResolvedValue(undefined);
     listUserGroups.mockResolvedValue([adminGroup]);
@@ -186,6 +190,7 @@ describe('GroupsPage', () => {
     leaveGroup.mockResolvedValue(undefined);
     removeGroupMember.mockResolvedValue(undefined);
     reviewEventJoinRequest.mockResolvedValue('event-1');
+    setGroupMemberRole.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -222,6 +227,29 @@ describe('GroupsPage', () => {
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Map Maker'));
     expect(await screen.findByText('Member removed.')).toBeInTheDocument();
     expect(screen.queryByText('Map Maker')).not.toBeInTheDocument();
+  });
+
+  it('lets guild stewards promote and demote other members', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderGroups();
+
+    const regularMemberCard = (await screen.findByText('Map Maker')).closest('article');
+    if (!regularMemberCard) throw new Error('Expected regular member card.');
+    fireEvent.click(within(regularMemberCard).getByRole('button', { name: /make steward/i }));
+
+    await waitFor(() => {
+      expect(setGroupMemberRole).toHaveBeenCalledWith('group-1', 'user-2', 'group_admin');
+    });
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Map Maker'));
+    expect(await screen.findByText('Member made a guild steward.')).toBeInTheDocument();
+
+    fireEvent.click(within(regularMemberCard).getByRole('button', { name: /make member/i }));
+
+    await waitFor(() => {
+      expect(setGroupMemberRole).toHaveBeenCalledWith('group-1', 'user-2', 'regular');
+    });
+    expect(await screen.findByText('Member returned to regular membership.')).toBeInTheDocument();
   });
 
   it('does not let guild admins leave guilds themselves', async () => {

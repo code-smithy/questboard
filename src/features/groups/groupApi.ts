@@ -217,6 +217,16 @@ export async function removeGroupMember(groupId: string, memberUserId: string) {
   if (error) throw error;
 }
 
+export async function setGroupMemberRole(groupId: string, memberUserId: string, role: GroupRole) {
+  const { error } = await supabase.rpc('set_group_member_role', {
+    target_group_id: groupId,
+    target_user_id: memberUserId,
+    next_role: role,
+  });
+
+  if (error) throw error;
+}
+
 export async function listGroupInvites(groupId: string): Promise<GroupInvite[]> {
   const { data, error } = await supabase
     .from('group_invites')

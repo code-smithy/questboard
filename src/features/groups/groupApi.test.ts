@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, leaveGroup, listGroupLocations, listGroupMembers, listPendingEventJoinRequests, removeGroupMember, reviewEventJoinRequest } from './groupApi';
+import { archiveGroup, archiveGroupLocation, createGroup, createGroupLocation, leaveGroup, listGroupLocations, listGroupMembers, listPendingEventJoinRequests, removeGroupMember, reviewEventJoinRequest, setGroupMemberRole } from './groupApi';
 
 const { builders, from, rpc } = vi.hoisted(() => {
   const builders = {
@@ -106,16 +106,22 @@ describe('groupApi', () => {
     expect(builders.group_members.order).toHaveBeenCalledWith('joined_at', { ascending: true });
   });
 
-  it('leaves and removes guild members through RLS-safe database functions', async () => {
+  it('leaves, removes, and changes guild member roles through RLS-safe database functions', async () => {
     rpc.mockResolvedValue({ data: null, error: null });
 
     await expect(leaveGroup('group-1')).resolves.toBeUndefined();
     await expect(removeGroupMember('group-1', 'user-2')).resolves.toBeUndefined();
+    await expect(setGroupMemberRole('group-1', 'user-2', 'group_admin')).resolves.toBeUndefined();
 
     expect(rpc).toHaveBeenCalledWith('leave_group', { target_group_id: 'group-1' });
     expect(rpc).toHaveBeenCalledWith('remove_group_member', {
       target_group_id: 'group-1',
       target_user_id: 'user-2',
+    });
+    expect(rpc).toHaveBeenCalledWith('set_group_member_role', {
+      target_group_id: 'group-1',
+      target_user_id: 'user-2',
+      next_role: 'group_admin',
     });
   });
 

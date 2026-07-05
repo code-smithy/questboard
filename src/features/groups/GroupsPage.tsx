@@ -18,6 +18,7 @@ import {
   leaveGroup,
   removeGroupMember,
   reviewEventJoinRequest,
+  setGroupMemberRole,
 } from './groupApi';
 import type { EventJoinRequest, GroupInvite, GroupLocation, GroupMember, GroupSummary } from './groupApi';
 
@@ -58,6 +59,7 @@ export function GroupsPage() {
   const [isArchivingGroup, setIsArchivingGroup] = useState(false);
   const [isLeavingGroup, setIsLeavingGroup] = useState(false);
   const [removingMemberUserId, setRemovingMemberUserId] = useState<string | null>(null);
+  const [changingMemberRoleUserId, setChangingMemberRoleUserId] = useState<string | null>(null);
   const [reviewingJoinRequestId, setReviewingJoinRequestId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -311,7 +313,7 @@ export function GroupsPage() {
   };
 
   const handleRemoveMember = async (member: GroupMember) => {
-    if (!selectedGroup || selectedGroup.role !== 'group_admin' || member.user_id === user?.id || removingMemberUserId) return;
+    if (!selectedGroup || selectedGroup.role !== 'group_admin' || member.user_id === user?.id || removingMemberUserId || changingMemberRoleUserId) return;
     const memberName = member.profiles?.display_name ?? t('event.unknownMember');
     if (!window.confirm(t('groups.removeMemberConfirm', { member: memberName, name: selectedGroup.name }))) return;
 
@@ -329,6 +331,34 @@ export function GroupsPage() {
       setRemovingMemberUserId(null);
     }
   };
+
+  const handleToggleMemberRole = async (member: GroupMember) => {
+    if (!selectedGroup || selectedGroup.role !== 'group_admin' || member.user_id === user?.id || changingMemberRoleUserId || removingMemberUserId) return;
+
+    const nextRole = member.role === 'group_admin' ? 'regular' : 'group_admin';
+    const memberName = member.profiles?.display_name ?? t('event.unknownMember');
+    const confirmKey = nextRole === 'group_admin' ? 'groups.promoteMemberConfirm' : 'groups.demoteMemberConfirm';
+    if (!window.confirm(t(confirmKey, { member: memberName, name: selectedGroup.name }))) return;
+
+    setChangingMemberRoleUserId(member.user_id);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      await setGroupMemberRole(selectedGroup.id, member.user_id, nextRole);
+      setMembers((currentMembers) =>
+        currentMembers.map((currentMember) =>
+          currentMember.user_id === member.user_id ? { ...currentMember, role: nextRole } : currentMember,
+        ),
+      );
+      setStatusMessage(nextRole === 'group_admin' ? t('groups.memberPromoted') : t('groups.memberDemoted'));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, t('groups.memberRoleChangeError')));
+    } finally {
+      setChangingMemberRoleUserId(null);
+    }
+  };
+
   const handleDeactivateInvite = async (inviteId: string) => {
     setStatusMessage(null);
     setErrorMessage(null);
@@ -534,6 +564,9 @@ export function GroupsPage() {
             <div className="member-list" role="list">
               {members.map((member) => {
                 const memberName = member.profiles?.display_name ?? t('event.unknownMember');
+                const isChangingMemberRole = changingMemberRoleUserId === member.user_id;
+                const isRemovingMember = removingMemberUserId === member.user_id;
+                const canChangeMemberRole = canManageMembers && member.user_id !== user?.id;
                 const canRemoveMember = canManageMembers && member.user_id !== user?.id;
                 return (
                   <article className="member-card" key={member.id}>
@@ -541,10 +574,23 @@ export function GroupsPage() {
                       <strong>{memberName}</strong>
                       <p className="hint">{member.role === 'group_admin' ? t('groups.admin') : t('groups.member')} - {t('groups.joinedAt', { date: new Date(member.joined_at).toLocaleDateString(locale) })}</p>
                     </div>
-                    {canRemoveMember && (
-                      <button type="button" className="secondary-button" disabled={removingMemberUserId === member.user_id} onClick={() => void handleRemoveMember(member)}>
-                        {removingMemberUserId === member.user_id ? t('groups.removingMember') : t('groups.removeMember')}
-                      </button>
+                    {(canChangeMemberRole || canRemoveMember) && (
+                      <div className="button-row compact-actions member-actions">
+                        {canChangeMemberRole && (
+                          <button type="button" disabled={isChangingMemberRole || isRemovingMember} onClick={() => void handleToggleMemberRole(member)}>
+                            {isChangingMemberRole
+                              ? t('groups.updatingMemberRole')
+                              : member.role === 'group_admin'
+                                ? t('groups.demoteMember')
+                                : t('groups.promoteMember')}
+                          </button>
+                        )}
+                        {canRemoveMember && (
+                          <button type="button" className="secondary-button" disabled={isRemovingMember || isChangingMemberRole} onClick={() => void handleRemoveMember(member)}>
+                            {isRemovingMember ? t('groups.removingMember') : t('groups.removeMember')}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </article>
                 );
