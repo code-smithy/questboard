@@ -16,7 +16,7 @@ import {
 vi.mock('./profileApi', () => ({
   disableOwnCalendarFeed: vi.fn(),
   ensureOwnCalendarFeed: vi.fn(),
-  getCalendarFeedUrl: (token: string) => `http://localhost:54321/functions/v1/calendar-feed?token=${token}`,
+  getCalendarFeedUrl: (token: string) => `http://localhost:54321/functions/v1/calendar-feed/${token}.ics`,
   getOwnCalendarFeed: vi.fn(),
   regenerateOwnCalendarFeed: vi.fn(),
   updateOwnProfileDefaultEventDuration: vi.fn(),
@@ -155,7 +155,7 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create subscription link' }));
 
     await waitFor(() => expect(ensureOwnCalendarFeed).toHaveBeenCalledWith('rsvp'));
-    expect(await screen.findByLabelText('Private .ics URL')).toHaveValue('http://localhost:54321/functions/v1/calendar-feed?token=feed-token');
+    expect(await screen.findByLabelText('Private .ics URL')).toHaveValue('http://localhost:54321/functions/v1/calendar-feed/feed-token.ics');
     expect(await screen.findByText('Calendar subscription saved.')).toBeInTheDocument();
   });
 
@@ -174,7 +174,7 @@ describe('ProfilePage', () => {
 
     renderProfilePage();
 
-    expect(await screen.findByLabelText('Private .ics URL')).toHaveValue('http://localhost:54321/functions/v1/calendar-feed?token=feed-token');
+    expect(await screen.findByLabelText('Private .ics URL')).toHaveValue('http://localhost:54321/functions/v1/calendar-feed/feed-token.ics');
 
     fireEvent.click(screen.getByRole('button', { name: 'Revoke subscription' }));
 

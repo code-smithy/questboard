@@ -107,5 +107,5 @@ export async function disableOwnCalendarFeed() {
 }
 
 export function getCalendarFeedUrl(token: string) {
-  return `${supabaseUrl}/functions/v1/calendar-feed?token=${encodeURIComponent(token)}`;
+  return `${supabaseUrl}/functions/v1/calendar-feed/${encodeURIComponent(token)}.ics`;
 }

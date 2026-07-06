@@ -10,7 +10,7 @@ Create a Supabase project, then apply the migrations in `supabase/migrations` in
 2. `0002_rls_policies.sql` enables RLS, adds shared authorization helper functions, defines initial policies, and exposes `public_event_cards` as the safe public event read model.
 3. `0003_seed_default_categories.sql` automatically promotes each new group creator to `group_admin` and seeds the default categories.
 
-Calendar subscription feeds also require deploying the Supabase Edge Function in `supabase/functions/calendar-feed`. The function reads a private feed token from `?token=...`, calls `get_calendar_feed_events`, and returns an aggregated `.ics` calendar for the owning user. Deploy it after applying the calendar feed migration:
+Calendar subscription feeds also require deploying the Supabase Edge Function in `supabase/functions/calendar-feed`. The function reads a private feed token from `/calendar-feed/<token>.ics` or the legacy `?token=...` fallback, calls `get_calendar_feed_events`, and returns an aggregated `.ics` calendar for the owning user. The feed URL is meant for external calendar apps, so `supabase/config.toml` disables JWT verification for this function; the random feed token remains the bearer secret. Deploy it after applying the calendar feed migration:
 
 ```text
 supabase functions deploy calendar-feed

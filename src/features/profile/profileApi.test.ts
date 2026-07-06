@@ -128,6 +128,6 @@ describe('profileApi', () => {
   });
 
   it('builds the public calendar feed function URL', () => {
-    expect(getCalendarFeedUrl('token with spaces')).toBe('https://questboard.example.supabase.co/functions/v1/calendar-feed?token=token%20with%20spaces');
+    expect(getCalendarFeedUrl('token with spaces')).toBe('https://questboard.example.supabase.co/functions/v1/calendar-feed/token%20with%20spaces.ics');
   });
 });

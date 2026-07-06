@@ -51,6 +51,19 @@ function getLocation(event: CalendarFeedEvent) {
   ].filter(Boolean).join(', ');
 }
 
+function getPathToken(url: URL) {
+  const pathParts = url.pathname.split('/').filter(Boolean);
+  const functionPathIndex = pathParts.lastIndexOf('calendar-feed');
+  const rawPathToken = functionPathIndex >= 0 ? pathParts[functionPathIndex + 1] : undefined;
+  if (!rawPathToken) return null;
+
+  try {
+    return decodeURIComponent(rawPathToken.replace(/\.ics$/i, ''));
+  } catch {
+    return rawPathToken.replace(/\.ics$/i, '');
+  }
+}
+
 function buildCalendarFeed(events: CalendarFeedEvent[]) {
   const lines = [
     'BEGIN:VCALENDAR',
@@ -96,8 +109,7 @@ function buildCalendarFeed(events: CalendarFeedEvent[]) {
 
 Deno.serve(async (request) => {
   const url = new URL(request.url);
-  const pathToken = url.pathname.split('/').filter(Boolean).pop()?.replace(/\.ics$/, '');
-  const token = url.searchParams.get('token') ?? pathToken;
+  const token = url.searchParams.get('token') ?? getPathToken(url);
 
   if (!token) {
     return new Response('Missing calendar feed token.', { status: 400 });
@@ -124,6 +136,7 @@ Deno.serve(async (request) => {
   return new Response(buildCalendarFeed((data ?? []) as CalendarFeedEvent[]), {
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': 'inline; filename="questboard.ics"',
       'Cache-Control': 'private, max-age=300',
     },
   });
