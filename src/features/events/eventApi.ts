@@ -170,10 +170,12 @@ type EventPayloadOverrides = {
   endAt?: string;
   recurrenceRule?: string | null;
   recurrenceParentId?: string | null;
+  status?: Exclude<EventStatus, 'archived'> | null;
 };
 
 function toPayload(input: EventFormInput, overrides: EventPayloadOverrides = {}) {
   const recurrenceRule = Object.prototype.hasOwnProperty.call(overrides, 'recurrenceRule') ? overrides.recurrenceRule : input.recurrenceRule;
+  const status = Object.prototype.hasOwnProperty.call(overrides, 'status') ? overrides.status : input.status;
 
   const payload = {
     group_id: input.groupId,
@@ -195,16 +197,17 @@ function toPayload(input: EventFormInput, overrides: EventPayloadOverrides = {})
     minimum_attendees: input.minimumAttendees,
     maximum_attendees: input.maximumAttendees,
     visibility: input.visibility,
-    status: input.status,
     recurrence_rule: recurrenceRule,
   };
 
+  const payloadWithOptionalStatus = status === null ? payload : { ...payload, status };
+
   return Object.prototype.hasOwnProperty.call(overrides, 'recurrenceParentId')
-    ? { ...payload, recurrence_parent_id: overrides.recurrenceParentId ?? null }
-    : payload;
+    ? { ...payloadWithOptionalStatus, recurrence_parent_id: overrides.recurrenceParentId ?? null }
+    : payloadWithOptionalStatus;
 }
 
-function getOccurrencePayloads(input: EventFormInput, parentId: string) {
+function getOccurrencePayloads(input: EventFormInput, parentId: string, overrides: Pick<EventPayloadOverrides, 'status'> = {}) {
   if (!input.recurrenceRule) return [];
 
   const durationMs = new Date(input.endAt).getTime() - new Date(input.startAt).getTime();
@@ -217,6 +220,7 @@ function getOccurrencePayloads(input: EventFormInput, parentId: string) {
         endAt: endAt.toISOString(),
         recurrenceRule: null,
         recurrenceParentId: parentId,
+        ...overrides,
       });
     });
 }
@@ -298,7 +302,7 @@ async function replaceFutureOccurrences(parentId: string, input: EventFormInput,
 
   if (archiveError) throw archiveError;
 
-  const occurrencePayloads = getOccurrencePayloads(input, parentId)
+  const occurrencePayloads = getOccurrencePayloads(input, parentId, { status: null })
     .filter((payload) => new Date(payload.start_at).getTime() >= new Date(cutoff).getTime());
 
   if (occurrencePayloads.length) {
@@ -441,7 +445,11 @@ export async function getEvent(eventId: string): Promise<QuestEvent> {
   };
 }
 
-export async function updateEvent(eventId: string, input: EventFormInput) {
+export async function updateEvent(
+  eventId: string,
+  input: EventFormInput,
+  options: { replaceFutureOccurrences?: boolean } = {},
+) {
   const { error } = await supabase
     .from('events')
     .update(toPayload(input))
@@ -449,7 +457,9 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
 
   if (error) throw error;
 
-  await replaceFutureOccurrences(eventId, input);
+  if (options.replaceFutureOccurrences ?? Boolean(input.recurrenceRule)) {
+    await replaceFutureOccurrences(eventId, input);
+  }
 }
 
 export async function archiveEvent(eventId: string) {

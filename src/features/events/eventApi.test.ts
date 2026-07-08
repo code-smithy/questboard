@@ -200,6 +200,38 @@ describe('eventApi', () => {
     ]);
   });
 
+  it('can update a recurring event status without replacing future occurrences', async () => {
+    await updateEvent(
+      'event-1',
+      { ...input, status: 'cancelled', recurrenceRule: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;COUNT=3' },
+      { replaceFutureOccurrences: false },
+    );
+
+    expect(builders.events.update).toHaveBeenCalledTimes(1);
+    expect(builders.events.update).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'cancelled',
+      recurrence_rule: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;COUNT=3',
+    }));
+    expect(builders.events.insert).not.toHaveBeenCalled();
+    expect(builders.events.gte).not.toHaveBeenCalled();
+  });
+
+  it('does not copy a parent cancellation status into regenerated occurrences', async () => {
+    builders.events.gte.mockResolvedValue({ error: null });
+
+    await updateEvent('event-1', {
+      ...input,
+      status: 'cancelled',
+      recurrenceRule: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;COUNT=3',
+    });
+
+    const generatedOccurrencePayloads = (builders.events.insert.mock.calls as unknown as unknown[][])[0]?.[0];
+    expect(generatedOccurrencePayloads).toEqual([
+      expect.not.objectContaining({ status: 'cancelled' }),
+      expect.not.objectContaining({ status: 'cancelled' }),
+    ]);
+  });
+
   it('upserts a member RSVP for an event', async () => {
     builders.event_rsvps.upsert.mockResolvedValue({ error: null });
 

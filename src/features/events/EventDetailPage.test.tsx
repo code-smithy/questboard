@@ -5,12 +5,14 @@ import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { EventDetailPage } from './EventDetailPage';
 
-const { addEventComment, archiveEvent, archiveEventComment, archiveEventSeries, getEvent, listUserGroups, recordEventHistory, replaceInAppReminder, reviewEventJoinRequest, setEventRsvp, updateEvent } = vi.hoisted(() => ({
+const { addEventComment, archiveEvent, archiveEventComment, archiveEventSeries, getEvent, listGroupCategories, listGroupLocations, listUserGroups, recordEventHistory, replaceInAppReminder, reviewEventJoinRequest, setEventRsvp, updateEvent } = vi.hoisted(() => ({
   addEventComment: vi.fn(),
   archiveEvent: vi.fn(),
   archiveEventComment: vi.fn(),
   archiveEventSeries: vi.fn(),
   getEvent: vi.fn(),
+  listGroupCategories: vi.fn(),
+  listGroupLocations: vi.fn(),
   listUserGroups: vi.fn(),
   recordEventHistory: vi.fn(),
   replaceInAppReminder: vi.fn(),
@@ -20,6 +22,7 @@ const { addEventComment, archiveEvent, archiveEventComment, archiveEventSeries, 
 }));
 
 vi.mock('../groups/groupApi', () => ({
+  listGroupLocations,
   listUserGroups,
   reviewEventJoinRequest,
 }));
@@ -31,6 +34,7 @@ vi.mock('./eventApi', async (importOriginal) => ({
   archiveEventComment,
   archiveEventSeries,
   getEvent,
+  listGroupCategories,
   recordEventHistory,
   replaceInAppReminder,
   setEventRsvp,
@@ -152,12 +156,28 @@ describe('EventDetailPage', () => {
     archiveEventComment.mockReset();
     archiveEventSeries.mockReset();
     getEvent.mockReset();
+    listGroupCategories.mockReset();
+    listGroupLocations.mockReset();
     listUserGroups.mockReset();
     recordEventHistory.mockReset();
     replaceInAppReminder.mockReset();
     reviewEventJoinRequest.mockReset();
     setEventRsvp.mockReset();
     updateEvent.mockReset();
+    listGroupCategories.mockResolvedValue([{ id: 'category-1', group_id: 'group-1', name: 'Board Games', color: '#f0b35a', icon: null }]);
+    listGroupLocations.mockResolvedValue([{
+      id: 'location-1',
+      group_id: 'group-1',
+      name: 'The Game Room',
+      address: '42 Tabletop Lane',
+      latitude: null,
+      longitude: null,
+      map_url: 'https://maps.example/game-room',
+      notes: 'Ring the side bell.',
+      created_by: 'user-2',
+      created_at: '2026-07-01T10:00:00Z',
+      archived_at: null,
+    }]);
     listUserGroups.mockResolvedValue([{ id: 'group-1', name: 'Friday Guild', role: 'regular' }]);
     getEvent.mockResolvedValue(event);
     addEventComment.mockResolvedValue(undefined);
@@ -245,6 +265,24 @@ describe('EventDetailPage', () => {
       expect(replaceInAppReminder).toHaveBeenCalledWith('event-1', 'user-1', '2026-07-10T18:00:00Z', 15);
     });
     expect(getEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it('updates a recurring event status without replacing future occurrences', async () => {
+    updateEvent.mockResolvedValue(undefined);
+    renderEventDetail();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit quest' }));
+    fireEvent.click(await screen.findByText('Advanced details'));
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'cancelled' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save quest' }));
+
+    await waitFor(() => {
+      expect(updateEvent).toHaveBeenCalledWith(
+        'event-1',
+        expect.objectContaining({ status: 'cancelled' }),
+        { replaceFutureOccurrences: false },
+      );
+    });
   });
 
   it('lets the event owner admit pending public join requests', async () => {

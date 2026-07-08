@@ -102,18 +102,48 @@ function toEventHistoryValues(event: QuestEvent) {
   };
 }
 
+function areHistoryValuesEqual(key: string, oldValue: unknown, newValue: unknown) {
+  if (key === 'start_at' || key === 'end_at') {
+    const oldDate = typeof oldValue === 'string' ? new Date(oldValue) : null;
+    const newDate = typeof newValue === 'string' ? new Date(newValue) : null;
+    if (oldDate && newDate && !Number.isNaN(oldDate.getTime()) && !Number.isNaN(newDate.getTime())) {
+      return oldDate.getTime() === newDate.getTime();
+    }
+  }
+
+  if (key === 'online_details') {
+    const normalizeOnlineDetails = (value: unknown) => {
+      const details = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+      return {
+        platform: details.platform || null,
+        url: details.url || null,
+        instructions: details.instructions || null,
+      };
+    };
+
+    return JSON.stringify(normalizeOnlineDetails(oldValue)) === JSON.stringify(normalizeOnlineDetails(newValue));
+  }
+
+  return JSON.stringify(oldValue) === JSON.stringify(newValue);
+}
+
 function getChangedValues(oldValue: Record<string, unknown>, newValue: Record<string, unknown>) {
   const oldChanges: Record<string, unknown> = {};
   const newChanges: Record<string, unknown> = {};
 
   Object.entries(newValue).forEach(([key, value]) => {
-    if (JSON.stringify(oldValue[key]) !== JSON.stringify(value)) {
+    if (!areHistoryValuesEqual(key, oldValue[key], value)) {
       oldChanges[key] = oldValue[key];
       newChanges[key] = value;
     }
   });
 
   return Object.keys(newChanges).length ? { oldChanges, newChanges } : null;
+}
+
+function shouldReplaceFutureOccurrences(event: QuestEvent | null, changes: ReturnType<typeof getChangedValues>) {
+  if (!event?.recurrence_rule || !changes) return false;
+  return Object.keys(changes.newChanges).some((field) => field !== 'status');
 }
 
 function formatHistoryLabel(changeType: string) {
@@ -193,7 +223,9 @@ export function EventDetailPage() {
     try {
       const currentEvent = event;
       const changes = currentEvent ? getChangedValues(toEventHistoryValues(currentEvent), toHistoryValues(values)) : null;
-      await updateEvent(eventId, { ...values, ownerId: user.id });
+      await updateEvent(eventId, { ...values, ownerId: user.id }, {
+        replaceFutureOccurrences: shouldReplaceFutureOccurrences(currentEvent, changes),
+      });
       if (changes) {
         await recordEventHistory({
           eventId,
