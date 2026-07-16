@@ -13,7 +13,7 @@
     "verify:no-committed-build": "node scripts/verify-no-committed-build.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.110.6",
     "date-fns": "^4.4.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
