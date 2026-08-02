@@ -413,7 +413,6 @@ export function EventDetailPage() {
     });
     const currentUserRsvp = event.event_rsvps.find((rsvp) => rsvp.user_id === user.id)?.status ?? null;
     const currentReminderOffset = getReminderOffsetMinutes(event, user.id);
-    const attendees = event.event_rsvps.filter((rsvp) => rsvp.status === 'attending');
     const currentGroup = groups.find((group) => group.id === event.group_id);
     const canModerateComments = currentGroup?.role === 'group_admin';
     const canReviewJoinRequests = event.owner_id === user.id || currentGroup?.role === 'group_admin';
@@ -485,10 +484,13 @@ export function EventDetailPage() {
               </button>
             ))}
           </div>
-          <div className="attendee-list" aria-label={t('event.attendingMembers')}>
-            {attendees.length ? attendees.map((rsvp) => (
-              <span key={rsvp.id}>{rsvp.profiles?.display_name ?? t('event.unknownMember')}</span>
-            )) : <span>{t('event.noAttendees')}</span>}
+          <div className="rsvp-roster" aria-label={t('event.rsvpChoices')}>
+            {event.event_rsvps.length ? event.event_rsvps.map((rsvp) => (
+              <span className="rsvp-roster-member" data-status={rsvp.status} key={rsvp.id}>
+                <span>{rsvp.profiles?.display_name ?? t('event.unknownMember')}</span>
+                <strong>{t(`rsvp.${rsvp.status}`)}</strong>
+              </span>
+            )) : <span className="rsvp-roster-empty">{t('event.noRsvps')}</span>}
           </div>
         </section>
 

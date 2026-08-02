@@ -198,7 +198,13 @@ describe('EventDetailPage', () => {
     expect(screen.getByText('Every 1 week(s) on Monday, Wednesday')).toBeInTheDocument();
     expect(screen.getByText('Friday Guild')).toBeInTheDocument();
     expect(screen.getByText('1 attending, 1 maybe, 0 declined.')).toBeInTheDocument();
-    expect(within(screen.getByLabelText('Attending members')).getByText('Quest Keeper')).toBeInTheDocument();
+    const rsvpRoster = screen.getByLabelText('RSVP choices');
+    const questKeeperRsvp = within(rsvpRoster).getByText('Quest Keeper').closest('.rsvp-roster-member');
+    const mapMakerRsvp = within(rsvpRoster).getByText('Map Maker').closest('.rsvp-roster-member');
+    expect(questKeeperRsvp).not.toBeNull();
+    expect(mapMakerRsvp).not.toBeNull();
+    expect(within(questKeeperRsvp as HTMLElement).getByText('Attending')).toBeInTheDocument();
+    expect(within(mapMakerRsvp as HTMLElement).getByText('Maybe')).toBeInTheDocument();
     expect(screen.getByText('I can bring snacks.')).toBeInTheDocument();
     expect(screen.getByText('event updated')).toBeInTheDocument();
     expect(screen.getByLabelText('Remind me')).toHaveValue('60');

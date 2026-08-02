@@ -1668,19 +1668,42 @@ nav a:hover {
   }
 }
 
-.attendee-list {
+.rsvp-roster {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
 }
 
-.attendee-list span {
+.rsvp-roster-member,
+.rsvp-roster-empty {
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
   border: 1px solid rgba(248, 234, 210, 0.16);
   border-radius: 999px;
   padding: 0.35rem 0.65rem;
   color: #f8ead2;
   background: rgba(248, 234, 210, 0.06);
   font-size: 0.9rem;
+}
+
+.rsvp-roster-member strong {
+  border-radius: 999px;
+  padding: 0.12rem 0.42rem;
+  background: rgba(240, 179, 90, 0.16);
+  color: #f4c57d;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.rsvp-roster-member[data-status="maybe"] strong {
+  background: rgba(125, 185, 232, 0.16);
+  color: #a8d5f5;
+}
+
+.rsvp-roster-member[data-status="declined"] strong {
+  background: rgba(219, 102, 87, 0.16);
+  color: #f0a192;
 }
 
 .location-detail {
