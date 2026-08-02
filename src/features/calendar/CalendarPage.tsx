@@ -97,6 +97,10 @@ function getTimeLabel(event: CalendarEvent, locale: string) {
   }).format(new Date(event.start_at));
 }
 
+function isEventInPast(event: CalendarEvent, now = new Date()) {
+  return new Date(event.end_at ?? event.start_at).getTime() < now.getTime();
+}
+
 function formatReminderDate(reminder: DueReminder, locale: string, unknownTimeLabel: string) {
   if (!reminder.events) return unknownTimeLabel;
   return new Intl.DateTimeFormat(locale, {
@@ -230,11 +234,16 @@ export function CalendarPage() {
     return true;
   }), [events, selectedCategory, selectedGroupId, selectedMode]);
 
-  const eventsByMonth = useMemo(() => filteredEvents.reduce<Record<string, CalendarEvent[]>>((months, event) => {
+  const agendaEvents = useMemo(() => {
+    const now = new Date();
+    return filteredEvents.filter((event) => !isEventInPast(event, now));
+  }, [filteredEvents]);
+
+  const eventsByMonth = useMemo(() => agendaEvents.reduce<Record<string, CalendarEvent[]>>((months, event) => {
     const monthKey = getMonthKey(event.start_at);
     months[monthKey] = [...(months[monthKey] ?? []), event];
     return months;
-  }, {}), [filteredEvents]);
+  }, {}), [agendaEvents]);
 
   const monthKeys = Object.keys(eventsByMonth).sort();
   const weekdayLabels = useMemo(() => getWeekdayLabels(locale), [locale]);
@@ -249,6 +258,7 @@ export function CalendarPage() {
     selectedCategory === 'all' ? null : selectedCategory,
     selectedMode === 'all' ? null : t(`mode.${selectedMode}`),
   ].filter(Boolean);
+  const hasVisibleEvents = selectedView === 'month' ? filteredEvents.length > 0 : agendaEvents.length > 0;
 
   const showPreviousMonth = () => {
     const [year, month] = focusedMonth.split('-').map(Number);
@@ -363,7 +373,7 @@ export function CalendarPage() {
         <p className="hint">{t('calendar.loading')}</p>
       ) : !groups.length ? (
         <p className="hint">{t('calendar.noGroups')}</p>
-      ) : !filteredEvents.length ? (
+      ) : !hasVisibleEvents ? (
         <p className="hint">{t('calendar.noMatches')}</p>
       ) : selectedView === 'month' ? (
         <div className="month-grid" role="grid" aria-label={getMonthLabel(focusedMonth, locale)}>

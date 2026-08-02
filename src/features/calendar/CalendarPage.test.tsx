@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import type { DueReminder } from '../events/eventApi';
@@ -150,6 +150,8 @@ function renderCalendarWithAuthRefreshControl() {
 
 describe('CalendarPage', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-01T12:00:00Z'));
     dismissInAppReminder.mockReset();
     getCalendarReadModel.mockReset();
     recordEventHistory.mockReset();
@@ -158,6 +160,10 @@ describe('CalendarPage', () => {
     getCalendarReadModel.mockResolvedValue(readModel);
     recordEventHistory.mockResolvedValue(undefined);
     setEventRsvp.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders grouped agenda events from the calendar read model', async () => {
@@ -193,6 +199,20 @@ describe('CalendarPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
     expect(screen.getByRole('grid', { name: 'July 2026' })).toBeInTheDocument();
+  });
+
+  it('hides past events from the agenda while keeping them on the month calendar', async () => {
+    vi.setSystemTime(new Date('2026-08-01T12:00:00Z'));
+    renderCalendar();
+
+    expect(await screen.findByText('Mini painting hangout')).toBeInTheDocument();
+    expect(screen.queryByText('Board game night')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+
+    expect(screen.getByRole('grid', { name: 'July 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /18:00 Board game night/i })).toHaveAttribute('href', '/events/event-1');
   });
 
   it('marks agenda cards with status and category colors', async () => {
