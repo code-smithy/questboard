@@ -141,7 +141,7 @@ describe('ProfilePage', () => {
       id: 'feed-1',
       owner_id: 'user-1',
       token: 'feed-token',
-      scope: 'rsvp',
+      scope: 'confirmed',
       is_active: true,
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
@@ -150,11 +150,11 @@ describe('ProfilePage', () => {
 
     renderProfilePage();
 
-    expect(await screen.findByLabelText('Calendar subscription')).toHaveValue('rsvp');
+    expect(await screen.findByLabelText('Calendar subscription')).toHaveValue('confirmed');
 
     fireEvent.click(screen.getByRole('button', { name: 'Create subscription link' }));
 
-    await waitFor(() => expect(ensureOwnCalendarFeed).toHaveBeenCalledWith('rsvp'));
+    await waitFor(() => expect(ensureOwnCalendarFeed).toHaveBeenCalledWith('confirmed'));
     expect(await screen.findByLabelText('Private .ics URL')).toHaveValue('http://localhost:54321/functions/v1/calendar-feed/feed-token.ics');
     expect(await screen.findByText('Calendar subscription saved.')).toBeInTheDocument();
   });
@@ -164,7 +164,7 @@ describe('ProfilePage', () => {
       id: 'feed-1',
       owner_id: 'user-1',
       token: 'feed-token',
-      scope: 'visible',
+      scope: 'confirmed',
       is_active: true,
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
@@ -188,7 +188,7 @@ describe('ProfilePage', () => {
 
     renderProfilePage();
 
-    expect(await screen.findByLabelText('Calendar subscription')).toHaveValue('rsvp');
+    expect(await screen.findByLabelText('Calendar subscription')).toHaveValue('confirmed');
 
     fireEvent.click(screen.getByRole('button', { name: 'Create subscription link' }));
 

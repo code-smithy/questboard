@@ -2,7 +2,7 @@ import { supabase, supabaseUrl } from '../../lib/supabase';
 import { normalizeTimezone } from '../../lib/timezones';
 import type { Profile } from '../auth/types';
 
-export type CalendarFeedScope = 'rsvp' | 'visible';
+export type CalendarFeedScope = 'confirmed';
 
 export type CalendarFeed = {
   id: string;
@@ -16,6 +16,10 @@ export type CalendarFeed = {
 };
 
 const calendarFeedColumns = 'id, owner_id, token, scope, is_active, created_at, updated_at, last_accessed_at';
+
+function normalizeCalendarFeed(feed: CalendarFeed | null) {
+  return feed ? { ...feed, scope: 'confirmed' as const } : null;
+}
 
 export async function updateOwnProfileDisplayName(profileId: string, displayName: string) {
   const trimmedDisplayName = displayName.trim();
@@ -75,7 +79,7 @@ export async function getOwnCalendarFeed(profileId: string) {
     throw error;
   }
 
-  return data as CalendarFeed | null;
+  return normalizeCalendarFeed(data as CalendarFeed | null);
 }
 
 export async function ensureOwnCalendarFeed(scope: CalendarFeedScope) {
@@ -85,7 +89,7 @@ export async function ensureOwnCalendarFeed(scope: CalendarFeedScope) {
     throw error;
   }
 
-  return data as CalendarFeed;
+  return normalizeCalendarFeed(data as CalendarFeed)!;
 }
 
 export async function regenerateOwnCalendarFeed() {
@@ -95,7 +99,7 @@ export async function regenerateOwnCalendarFeed() {
     throw error;
   }
 
-  return data as CalendarFeed;
+  return normalizeCalendarFeed(data as CalendarFeed)!;
 }
 
 export async function disableOwnCalendarFeed() {

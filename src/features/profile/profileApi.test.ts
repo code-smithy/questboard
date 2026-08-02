@@ -100,7 +100,7 @@ describe('profileApi', () => {
       error: null,
     });
 
-    await expect(getOwnCalendarFeed('user-1')).resolves.toMatchObject({ id: 'feed-1', token: 'token-1' });
+    await expect(getOwnCalendarFeed('user-1')).resolves.toMatchObject({ id: 'feed-1', token: 'token-1', scope: 'confirmed' });
 
     expect(from).toHaveBeenCalledWith('calendar_feeds');
     expect(builders.calendar_feeds.select).toHaveBeenCalledWith('id, owner_id, token, scope, is_active, created_at, updated_at, last_accessed_at');
@@ -113,16 +113,16 @@ describe('profileApi', () => {
       error: null,
     });
     rpc.mockResolvedValueOnce({
-      data: { id: 'feed-1', token: 'token-2', scope: 'visible', is_active: true },
+      data: { id: 'feed-1', token: 'token-2', scope: 'confirmed', is_active: true },
       error: null,
     });
     rpc.mockResolvedValueOnce({ data: null, error: null });
 
-    await expect(ensureOwnCalendarFeed('visible')).resolves.toMatchObject({ token: 'token-1' });
+    await expect(ensureOwnCalendarFeed('confirmed')).resolves.toMatchObject({ token: 'token-1', scope: 'confirmed' });
     await expect(regenerateOwnCalendarFeed()).resolves.toMatchObject({ token: 'token-2' });
     await expect(disableOwnCalendarFeed()).resolves.toBeUndefined();
 
-    expect(rpc).toHaveBeenCalledWith('ensure_own_calendar_feed', { feed_scope: 'visible' });
+    expect(rpc).toHaveBeenCalledWith('ensure_own_calendar_feed', { feed_scope: 'confirmed' });
     expect(rpc).toHaveBeenCalledWith('regenerate_own_calendar_feed');
     expect(rpc).toHaveBeenCalledWith('disable_own_calendar_feed');
   });

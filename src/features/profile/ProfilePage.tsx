@@ -38,7 +38,7 @@ export function ProfilePage() {
   const [durationSaveStatus, setDurationSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [timezoneSaveStatus, setTimezoneSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [calendarFeed, setCalendarFeed] = useState<CalendarFeed | null>(null);
-  const [calendarFeedScope, setCalendarFeedScope] = useState<CalendarFeedScope>('rsvp');
+  const [calendarFeedScope, setCalendarFeedScope] = useState<CalendarFeedScope>('confirmed');
   const [calendarFeedStatus, setCalendarFeedStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'copied' | 'revoked' | 'error'>('loading');
   const [calendarFeedErrorMessage, setCalendarFeedErrorMessage] = useState<string | null>(null);
   const trimmedDisplayName = useMemo(() => displayName.trim(), [displayName]);
@@ -75,7 +75,7 @@ export function ProfilePage() {
     async function loadCalendarFeed() {
       if (!profile) {
         setCalendarFeed(null);
-        setCalendarFeedScope('rsvp');
+        setCalendarFeedScope('confirmed');
         setCalendarFeedStatus('idle');
         setCalendarFeedErrorMessage(null);
         return;
@@ -88,7 +88,7 @@ export function ProfilePage() {
         const nextFeed = await getOwnCalendarFeed(profile.id);
         if (!isMounted) return;
         setCalendarFeed(nextFeed);
-        setCalendarFeedScope(nextFeed?.scope ?? 'rsvp');
+        setCalendarFeedScope(nextFeed?.scope ?? 'confirmed');
         setCalendarFeedStatus('idle');
       } catch (error) {
         console.error('Questboard could not load the calendar feed', error);
@@ -317,8 +317,7 @@ export function ProfilePage() {
               setCalendarFeedStatus('idle');
             }}
           >
-            <option value="rsvp">{t('profile.calendarFeedScopeRsvp')}</option>
-            <option value="visible">{t('profile.calendarFeedScopeVisible')}</option>
+            <option value="confirmed">{t('profile.calendarFeedScopeConfirmed')}</option>
           </select>
           <span className="hint">{t('profile.calendarFeedHint')}</span>
         </div>
