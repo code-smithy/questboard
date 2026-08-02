@@ -18,7 +18,7 @@ const baseAuthState: AuthState = {
 function renderProtected(authState: Partial<AuthState>) {
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
-      <MemoryRouter initialEntries={['/calendar']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter initialEntries={['/calendar']}>
         <Routes>
           <Route element={<RequireAuth />}>
             <Route path="/calendar" element={<h1>Calendar content</h1>} />

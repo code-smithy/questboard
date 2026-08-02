@@ -26,7 +26,7 @@ const baseAuthState: AuthState = {
 function renderInvite(authState: Partial<AuthState> = {}) {
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
-      <MemoryRouter initialEntries={['/join/invite-token']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter initialEntries={['/join/invite-token']}>
         <Routes>
           <Route path="/join/:inviteToken" element={<JoinInvitePage />} />
           <Route path="/groups" element={<h1>Your guilds</h1>} />

@@ -28,7 +28,7 @@ function renderCallback(url: string, authOverrides: Partial<AuthState> = {}) {
 
   return render(
     <AuthContext.Provider value={{ ...authState, ...authOverrides }}>
-      <MemoryRouter initialEntries={['/auth/callback']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter initialEntries={['/auth/callback']}>
         <Routes>
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/calendar" element={<h1>Calendar route</h1>} />

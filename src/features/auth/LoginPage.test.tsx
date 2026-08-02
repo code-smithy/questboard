@@ -39,7 +39,7 @@ const baseAuthState: AuthState = {
 function renderLogin(authState: Partial<AuthState> = {}) {
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
-      <MemoryRouter initialEntries={['/login']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter initialEntries={['/login']}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/calendar" element={<h1>Calendar route</h1>} />

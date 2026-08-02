@@ -139,7 +139,7 @@ const event = {
 function renderEventDetail() {
   return render(
     <AuthContext.Provider value={authState}>
-      <MemoryRouter initialEntries={['/events/event-1']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter initialEntries={['/events/event-1']}>
         <Routes>
           <Route path="/events/:eventId" element={<EventDetailPage />} />
           <Route path="/calendar" element={<h1>Calendar</h1>} />

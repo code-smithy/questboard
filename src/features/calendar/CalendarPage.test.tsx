@@ -109,7 +109,7 @@ function renderCalendar(authState: Partial<AuthState> = {}, reminders: DueRemind
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
       <TestReminderProvider initialReminders={reminders}>
-        <MemoryRouter initialEntries={['/calendar']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <MemoryRouter initialEntries={['/calendar']}>
           <Routes>
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/events/:eventId" element={<h1>Event detail route</h1>} />
@@ -135,7 +135,7 @@ function renderCalendarWithAuthRefreshControl() {
           <button type="button" onClick={() => setAuthVersion((currentVersion) => currentVersion + 1)}>
             Refresh auth
           </button>
-          <MemoryRouter initialEntries={['/calendar']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <MemoryRouter initialEntries={['/calendar']}>
             <Routes>
               <Route path="/calendar" element={<CalendarPage />} />
             </Routes>

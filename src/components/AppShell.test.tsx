@@ -30,7 +30,7 @@ function renderShell(authState: Partial<AuthState>, reminders: DueReminder[] = [
           setBrowserNotificationsEnabled: async () => undefined,
         }}
       >
-        <MemoryRouter initialEntries={['/calendar']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <MemoryRouter initialEntries={['/calendar']}>
           <Routes>
             <Route element={<AppShell />}>
               <Route path="/calendar" element={<h2>Calendar child</h2>} />

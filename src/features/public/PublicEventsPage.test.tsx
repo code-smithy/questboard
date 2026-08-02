@@ -75,7 +75,7 @@ const publicEvents = [
 function renderPublicEvents(authState: Partial<AuthState> = {}) {
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
-      <MemoryRouter initialEntries={['/public']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter initialEntries={['/public']}>
         <Routes>
           <Route path="/public" element={<PublicEventsPage />} />
           <Route path="/login" element={<h1>Login route</h1>} />

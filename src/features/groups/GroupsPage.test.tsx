@@ -154,7 +154,7 @@ const joinRequest = {
 function renderGroups(authState: Partial<AuthState> = {}) {
   return render(
     <AuthContext.Provider value={{ ...baseAuthState, ...authState }}>
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <GroupsPage />
       </MemoryRouter>
     </AuthContext.Provider>,
