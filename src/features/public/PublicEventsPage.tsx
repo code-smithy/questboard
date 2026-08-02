@@ -95,6 +95,10 @@ function getTimeLabel(event: PublicEventCard, locale: string) {
   }).format(new Date(event.start_at));
 }
 
+function isEventInPast(event: PublicEventCard, now = new Date()) {
+  return new Date(event.end_at ?? event.start_at).getTime() < now.getTime();
+}
+
 function getSafeOnlineUrl(event: PublicEventCard) {
   const url = event.online_details.url;
   if (!url) return null;
@@ -152,11 +156,16 @@ export function PublicEventsPage() {
 
   const filteredEvents = useMemo(() => events.filter((event) => selectedMode === 'all' || event.mode === selectedMode), [events, selectedMode]);
 
-  const eventsByMonth = useMemo(() => filteredEvents.reduce<Record<string, PublicEventCard[]>>((months, event) => {
+  const listEvents = useMemo(() => {
+    const now = new Date();
+    return filteredEvents.filter((event) => !isEventInPast(event, now));
+  }, [filteredEvents]);
+
+  const eventsByMonth = useMemo(() => listEvents.reduce<Record<string, PublicEventCard[]>>((months, event) => {
     const monthKey = getMonthKey(event.start_at);
     months[monthKey] = [...(months[monthKey] ?? []), event];
     return months;
-  }, {}), [filteredEvents]);
+  }, {}), [listEvents]);
 
   const monthKeys = Object.keys(eventsByMonth).sort();
   const weekdayLabels = useMemo(() => getWeekdayLabels(locale), [locale]);
@@ -167,6 +176,7 @@ export function PublicEventsPage() {
     return days;
   }, {}), [filteredEvents]);
   const activeFilterLabel = selectedMode === 'all' ? t('calendar.noActiveFilters') : t(`mode.${selectedMode}`);
+  const hasVisibleEvents = selectedView === 'month' ? filteredEvents.length > 0 : listEvents.length > 0;
 
   const showPreviousMonth = () => {
     const [year, month] = focusedMonth.split('-').map(Number);
@@ -262,7 +272,7 @@ export function PublicEventsPage() {
       {errorMessage && <p className="error-text" role="alert">{errorMessage}</p>}
       {isLoading || isLoadingEvents ? (
         <p className="hint">{t('public.loading')}</p>
-      ) : !filteredEvents.length ? (
+      ) : !hasVisibleEvents ? (
         <p className="hint">{t('public.empty')}</p>
       ) : selectedView === 'month' ? (
         <div className="month-grid" role="grid" aria-label={getMonthLabel(focusedMonth, locale)}>

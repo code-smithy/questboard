@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../auth/AuthContext';
 import type { AuthState } from '../auth/AuthContext';
 import { PublicEventsPage } from './PublicEventsPage';
@@ -88,10 +88,16 @@ function renderPublicEvents(authState: Partial<AuthState> = {}) {
 
 describe('PublicEventsPage', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-01T12:00:00Z'));
     listPublicEventCards.mockReset();
     requestPublicEventJoin.mockReset();
     listPublicEventCards.mockResolvedValue(publicEvents);
     requestPublicEventJoin.mockResolvedValue('request-1');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders public events without attendee identities or private detail links', async () => {
@@ -130,6 +136,20 @@ describe('PublicEventsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
     expect(screen.getByRole('grid', { name: 'July 2026' })).toBeInTheDocument();
+  });
+
+  it('hides past events from the public list while keeping them on the public month calendar', async () => {
+    vi.setSystemTime(new Date('2026-08-01T12:00:00Z'));
+    renderPublicEvents();
+
+    expect(await screen.findByText('Discord board games')).toBeInTheDocument();
+    expect(screen.queryByText('Open painting night')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+
+    expect(screen.getByRole('grid', { name: 'July 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /18:00 Open painting night/i })).toBeInTheDocument();
   });
 
   it('marks public cards with status and category colors', async () => {
